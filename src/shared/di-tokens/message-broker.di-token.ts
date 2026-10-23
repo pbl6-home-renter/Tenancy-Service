@@ -1,0 +1,3 @@
+﻿export const MESSAGE_BROKER_DI_TOKEN = {
+  PUBLISHER: Symbol('MESSAGE_BROKER_PUBLISHER'),
+};
