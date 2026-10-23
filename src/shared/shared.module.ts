@@ -1,5 +1,6 @@
 import { Global, Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { validateEnvironment } from './configuration/environment.validation';
 import { ApiConfigService } from './services/api-config.service';
 import { TypeormModule } from './infra/typeorm/typeorm.module';
 import { RabbitmqModule } from './infra/rabbitmq/rabbitmq.module';
@@ -12,6 +13,7 @@ import { UNIT_OF_WORK_DI_TOKEN } from './di-tokens/unit-of-work.di-token';
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
+      validate: validateEnvironment,
     }),
     TypeormModule,
     RabbitmqModule,

@@ -2,7 +2,7 @@
 set -e
 
 echo "Running migrations..."
-npm run migration:run:prod || true
+npm run migration:run:prod
 
 echo "Starting application..."
 node dist/main.js

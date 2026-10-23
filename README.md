@@ -1,6 +1,6 @@
-# NestJS Clean Architecture & CQRS Boilerplate
+# Tenancy-Service
 
-Boilerplate chuẩn doanh nghiệp (Enterprise-ready) tinh gọn và rõ ràng, được xây dựng dựa trên **Clean Architecture**, **Domain-Driven Design (DDD)** và **CQRS (Command Query Responsibility Segregation)** trên nền tảng **NestJS** và **TypeORM (PostgreSQL)**.
+Service quản lý nghiệp vụ tenancy được xây dựng bằng **NestJS**, **Clean Architecture**, **Domain-Driven Design (DDD)**, **CQRS** và **TypeORM (PostgreSQL)**.
 
 ---
 
@@ -90,29 +90,29 @@ cp .env.example .env
 | Biến | Mặc định / Mẫu | Bắt buộc | Mô tả chi tiết |
 | :--- | :--- | :---: | :--- |
 | **Cấu hình ứng dụng** | | | |
-| `APP_NAME` | `MyApp` | Không | Tên hiển thị của ứng dụng trong Swagger/Logs |
-| `PORT` | `3001` | Không | Cổng HTTP server lắng nghe (mặc định 3001) |
+| `APP_NAME` | `tenancy-service` | Không | Tên hiển thị của ứng dụng trong Swagger/Logs |
+| `PORT` | `3002` | Có | Cổng HTTP server của tenancy-service |
 | `NODE_ENV` | `dev` / `production` | **Có** | Môi trường chạy (`dev`, `production`, `test`) |
 | `API_DOMAIN` | `localhost` | Không | Domain chạy API (dùng cho Swagger Docs) |
 | `API_VERSION` | `1.0.0` | Không | Phiên bản API hiện tại |
 | `ENABLE_DOCUMENTATION` | `true` | Không | Bật/Tắt Swagger UI tại `/swagger` |
 | `LOG_LEVEL` | `debug` / `info` | Không | Mức độ log (`debug`, `info`, `warn`, `error`) |
 | **Cơ sở dữ liệu (PostgreSQL / Supabase)** | | | |
-| `DATABASE_URL` | `postgresql://...` | **Có** | Chuỗi kết nối đầy đủ (khuyên dùng khi xài Supabase với connection pooler) |
-| `DB_HOST` | `localhost` | Tùy chọn | Host database (nếu không dùng `DATABASE_URL`) |
-| `DB_PORT` | `5432` | Tùy chọn | Port database |
-| `DB_USERNAME` | `postgres` | Tùy chọn | Tên người dùng database |
-| `DB_PASSWORD` | `postgres` | Tùy chọn | Mật khẩu database |
-| `DB_DATABASE` | `app_db` | Tùy chọn | Tên database |
+| `DATABASE_URL` | `postgresql://.../tenancy_db` | Tùy chọn | Chuỗi kết nối đầy đủ; phải trỏ tới `tenancy_db` |
+| `DB_HOST` | `localhost` | Có nếu không dùng `DATABASE_URL` | Host database |
+| `DB_PORT` | `5432` | Có nếu không dùng `DATABASE_URL` | Port database |
+| `DB_USERNAME` | `postgres` | Có nếu không dùng `DATABASE_URL` | Tên người dùng database |
+| `DB_PASSWORD` | `postgres` | Có nếu không dùng `DATABASE_URL` | Mật khẩu database |
+| `DB_DATABASE` | `tenancy_db` | Có nếu không dùng `DATABASE_URL` | Tên database; chỉ chấp nhận `tenancy_db` |
 | `DB_SSL` | `true` / `false` | **Có** | Đặt `true` khi kết nối Supabase Cloud (bắt buộc SSL) |
 | `ENABLE_ORM_LOGS` | `false` | Không | Bật `true` nếu muốn in câu lệnh SQL ra terminal khi debug |
-| `MIGRATION_DATABASE_URL` | `postgresql://...` | Không | Connection string cho migration trực tiếp (Direct URL không qua pgbouncer) |
+| `MIGRATION_DATABASE_URL` | `postgresql://.../tenancy_db` | Không | Connection string cho migration; nếu cấu hình phải trỏ tới `tenancy_db` |
 | **RabbitMQ Message Broker** | | | |
 | `RABBITMQ_DEFAULT_USER` | `guest` | Không | Tài khoản đăng nhập RabbitMQ |
 | `RABBITMQ_DEFAULT_PASS` | `guest` | Không | Mật khẩu RabbitMQ |
 | `RABBITMQ_URL` | `amqp://...` | **Có** | Chuỗi kết nối RabbitMQ (`amqp://user:pass@localhost:5672` khi local, hoặc `amqp://...:5672@rabbitmq:5672` khi chạy Docker) |
 | **Transactional Outbox** | | | |
-| `RABBITMQ_EXCHANGE` | `MyApp.events` | Không | Durable topic exchange dùng cho integration events |
+| `RABBITMQ_EXCHANGE` | `tenancy_service.events` | Không | Durable topic exchange dùng cho integration events |
 | `RABBITMQ_PREFETCH` | `10` | Không | Prefetch của channel mặc định (consumer queue dùng prefetch 1 để giữ thứ tự) |
 | `RABBITMQ_CONSUMER_MAX_ATTEMPTS` | `5` | Không | Tổng số lần xử lý một message trước khi chuyển vào `<queue>.dlq` |
 | `RABBITMQ_CONSUMER_RETRY_DELAY_MS` | `10000` | Không | Thời gian message chờ trong `<queue>.retry` trước khi xử lý lại |
@@ -169,7 +169,7 @@ npm install
 #### Bước 2: Cấu hình biến môi trường:
 ```bash
 cp .env.example .env
-# Chỉnh sửa DATABASE_URL Supabase và RABBITMQ_URL trong .env
+# Cấu hình thông tin database tenancy_db và RabbitMQ trong .env
 ```
 
 #### Bước 3: Chạy Database Migrations:
@@ -181,7 +181,9 @@ npm run migration:run
 ```bash
 npm run start:dev
 ```
-Truy cập Swagger API Docs tại: `http://localhost:3001/swagger`
+Health check: `http://localhost:3002/health`
+
+Swagger API Docs: `http://localhost:3002/swagger`
 
 ---
 
@@ -189,10 +191,10 @@ Truy cập Swagger API Docs tại: `http://localhost:3001/swagger`
 
 ```bash
 # Build Docker image
-docker build -t rentify-backend:local .
+docker build -t tenancy-service:local .
 
 # Chạy container
-docker run -p 3001:3001 --env-file .env rentify-backend:local
+docker run -p 3002:3002 --env-file .env tenancy-service:local
 ```
 
 ---

@@ -46,7 +46,7 @@ export function resolveDatabaseConfig(
     port: parsePort(read('DB_PORT')),
     username: read('DB_USERNAME') ?? 'postgres',
     password: read('DB_PASSWORD') ?? 'postgres',
-    database: read('DB_DATABASE') ?? 'app_db',
+    database: read('DB_DATABASE') ?? 'tenancy_db',
     ssl,
     logging,
   };

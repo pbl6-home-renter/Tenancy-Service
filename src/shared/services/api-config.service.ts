@@ -17,7 +17,7 @@ export class ApiConfigService {
   constructor(private readonly configService: ConfigService) {}
 
   get appName(): string {
-    return getConfigString(this.configService, 'APP_NAME', 'MyApp');
+    return getConfigString(this.configService, 'APP_NAME', 'tenancy-service');
   }
 
   get databaseConfig(): DatabaseConfig {
@@ -110,7 +110,7 @@ export class ApiConfigService {
     };
   }
   get serverPort(): number {
-    return getConfigNumber(this.configService, 'PORT', 3001);
+    return getConfigNumber(this.configService, 'PORT', 3002);
   }
   get enableSwagger(): boolean {
     return getConfigBoolean(this.configService, 'ENABLE_DOCUMENTATION', true);

@@ -14,7 +14,7 @@ FROM node:24.18.0-slim AS runner
 WORKDIR /usr/src/app
 
 ENV NODE_ENV=production
-ARG PORT=3001
+ARG PORT=3002
 ENV PORT=$PORT
 
 COPY package*.json ./
@@ -27,4 +27,3 @@ RUN sed -i 's/\r$//' ./start.sh && chmod +x ./start.sh
 EXPOSE $PORT
 
 CMD ["./start.sh"]
-

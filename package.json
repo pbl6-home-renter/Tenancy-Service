@@ -1,7 +1,7 @@
 {
   "name": "tenancy-service",
   "version": "1.0.0",
-  "description": "Production-ready NestJS boilerplate using Clean Architecture, DDD, CQRS, and TypeORM",
+  "description": "Tenancy service built with NestJS, Clean Architecture, DDD, CQRS, and TypeORM",
   "author": "",
   "private": true,
   "license": "MIT",

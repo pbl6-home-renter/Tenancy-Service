@@ -8,9 +8,9 @@ export function configureSwagger(
 ) {
   if (configService.enableSwagger) {
     const config = new DocumentBuilder()
-      .setTitle('NestJS Clean Architecture API')
+      .setTitle('Tenancy Service API')
       .setDescription(
-        'Production-grade boilerplate using DDD, CQRS, and Clean Architecture',
+        'API for property, tenancy, contract, and billing domains',
       )
       .setVersion('1.0.0')
       .addBearerAuth()
