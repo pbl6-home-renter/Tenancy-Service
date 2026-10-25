@@ -5,14 +5,15 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import cookieParser from 'cookie-parser';
 import { json, urlencoded } from 'express';
 import { AppModule } from './app.module';
-import { requestBodyErrorMiddleware } from './middleware/request-body-error.middleware';
-import { createRequestBodyNormalizeMiddleware } from './middleware/request-body-normalize.middleware';
-import { AppValidationPipe } from './pipe/app-validation.pipe';
-import { configLogging } from './shared/configuration/config-logging';
-import { configureSwagger } from './shared/configuration/config-swagger';
-import { ApiConfigService } from './shared/services/api-config.service';
-import { SharedModule } from './shared/shared.module';
-import { createRequestBodyVerifier } from './utils/request-body-verify.util';
+import { requestBodyErrorMiddleware } from 'shared/presentation/http/middleware/request-body-error.middleware';
+import { createRequestBodyNormalizeMiddleware } from 'shared/presentation/http/middleware/request-body-normalize.middleware';
+import { AppValidationPipe } from 'shared/presentation/http/pipes/app-validation.pipe';
+import { configLogging } from 'shared/presentation/http/bootstrap/logging';
+import { configureSwagger } from 'shared/presentation/http/bootstrap/swagger';
+import { ApiConfigService } from 'shared/infrastructure/config/api-config.service';
+import { SharedModule } from 'shared/shared.module';
+import { createRequestBodyVerifier } from 'shared/presentation/http/middleware/request-body-verify.util';
+import { ServiceConstants } from 'config/service.constants';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -25,11 +26,11 @@ async function bootstrap() {
 
   app.use(cookieParser());
 
+  // `internal/*` (service-to-service) stays outside the prefix the gateway routes.
+  // CORS is handled by the API Gateway only.
   app.setGlobalPrefix('api/v1', {
-    exclude: [{ path: 'health', method: RequestMethod.GET }],
+    exclude: [{ path: 'internal/(.*)', method: RequestMethod.ALL }],
   });
-
-  app.enableCors();
 
   app.useGlobalPipes(new AppValidationPipe());
 
@@ -52,7 +53,9 @@ async function bootstrap() {
   const appUrl = await app.getUrl();
 
   Logger.log(`Application running on: ${appUrl}`);
-  Logger.log(`Swagger documentation: ${appUrl}/swagger`);
+  Logger.log(
+    `Swagger documentation: ${appUrl}/api/v1/${ServiceConstants.PATH}/swagger`,
+  );
 
   return app;
 }
