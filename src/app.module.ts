@@ -6,9 +6,16 @@ import { SharedModule } from './shared/shared.module';
 import { SampleModule } from './modules/sample/sample.module';
 import { HealthModule } from './modules/health/health.module';
 import { OutboxModule } from './modules/outbox/outbox.module';
+import { SecurityModule } from './shared/security.module';
 
 @Module({
-  imports: [SharedModule, SampleModule, OutboxModule, HealthModule],
+  imports: [
+    SharedModule,
+    SecurityModule,
+    SampleModule,
+    OutboxModule,
+    HealthModule,
+  ],
   providers: [
     {
       provide: APP_FILTER,

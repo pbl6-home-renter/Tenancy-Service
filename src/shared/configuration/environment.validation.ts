@@ -32,6 +32,28 @@ export function validateEnvironment(config: Environment): Environment {
   config.PORT = String(port);
   config.NODE_ENV = nodeEnvironment;
 
+  const jwksUrl = readOptionalString(config.JWKS_URL);
+  const publicKey = readOptionalString(config.JWT_PUBLIC_KEY);
+  if (!jwksUrl && !publicKey) {
+    throw new Error(
+      'Either environment variable "JWKS_URL" or "JWT_PUBLIC_KEY" is required',
+    );
+  }
+  if (jwksUrl) {
+    validateUrl(jwksUrl, 'JWKS_URL', ['http:', 'https:']);
+    config.JWKS_URL = jwksUrl;
+  }
+
+  config.JWT_ISSUER = readString(
+    config.JWT_ISSUER ?? 'rentify-identity',
+    'JWT_ISSUER',
+  );
+  config.JWT_AUDIENCE = readString(
+    config.JWT_AUDIENCE ?? 'rentify-api',
+    'JWT_AUDIENCE',
+  );
+  config.SERVICE_TOKEN = readOptionalString(config.SERVICE_TOKEN) ?? '';
+
   const databaseUrl = readOptionalString(config.DATABASE_URL);
   const migrationDatabaseUrl = readOptionalString(
     config.MIGRATION_DATABASE_URL,

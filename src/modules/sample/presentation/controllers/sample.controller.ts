@@ -20,8 +20,15 @@ import { GetSampleByIdQuery } from '../../use-case/queries/implements/sample-get
 import { SampleResponseCodeConstant } from '../constants/sample-response-code.constant';
 import { CreateSampleRequest } from '../request/create-sample.request';
 import { SampleResponseDto } from '../response/sample.response.dto';
+import { ApiBearerAuth } from '@nestjs/swagger';
+import {
+  Public,
+  Roles,
+} from 'shared/presentation/decorators/auth/access-control.decorators';
+import { UserRole } from 'shared/domain/enums/user-role.enum';
 
 @ApiTags('Samples')
+@ApiBearerAuth()
 @Controller('samples')
 export class SampleController {
   constructor(
@@ -30,6 +37,7 @@ export class SampleController {
   ) {}
 
   @Post()
+  @Roles(UserRole.LANDLORD, UserRole.ADMIN)
   @HttpCode(HttpStatus.CREATED)
   @ResponseCode(SampleResponseCodeConstant.SAMPLE_CREATED)
   @ApiOperation({
@@ -63,6 +71,7 @@ export class SampleController {
   }
 
   @Get(':id')
+  @Public()
   @HttpCode(HttpStatus.OK)
   @ResponseCode(SampleResponseCodeConstant.SAMPLE_FETCHED)
   @ApiOperation({
@@ -86,6 +95,7 @@ export class SampleController {
   }
 
   @Delete(':id')
+  @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ResponseCode(SampleResponseCodeConstant.SAMPLE_DELETED)
   @ApiOperation({

@@ -10,8 +10,10 @@ Service quản lý nghiệp vụ tenancy được xây dựng bằng **NestJS**,
 - **CQRS Pattern (@nestjs/cqrs)**: Tách bạch rõ ràng giữa Commands (Ghi/Sửa/Xóa dữ liệu), Queries (Đọc dữ liệu) và Events (Xử lý sự kiện nội bộ).
 - **Dependency Inversion (DI Tokens)**: Sử dụng Symbol DI Token để đảo ngược phụ thuộc giữa Domain và Infrastructure.
 - **Cơ sở dữ liệu (TypeORM & PostgreSQL)**: Cấu hình Data Source tối ưu, tự động mapping snake_case naming strategy, hỗ trợ Migration và Database Seeding (`typeorm-extension`).
+- **Xác thực stateless**: Tự xác minh access token RS256 từ Identity-Service qua JWKS, kiểm tra role và trạng thái tài khoản; không tin các header danh tính do API Gateway chuyển tiếp.
+- **Xác thực service-to-service**: Endpoint `internal/*` dùng `SERVICE_TOKEN` riêng và không đi qua API Gateway.
 - **Global Exception Filter chuẩn Clean Architecture**: Tự động nhận diện Domain Exception (`BaseException`), NestJS `HttpException`, và Validation errors để map HTTP status code chuẩn xác (404, 409, 400...).
-- **Tài liệu API tự động (Swagger/OpenAPI)**: Tự động sinh tài liệu API trực quan tại `/swagger`.
+- **Tài liệu API tự động (Swagger/OpenAPI)**: Tự động sinh tài liệu API tại `/api/v1/tenancy/swagger`.
 - **Bộ khung thuần khiết (Pure Skeleton)**: Không chứa logic nghiệp vụ dư thừa, dễ dàng sao chép và mở rộng cho bất kỳ dự án nào.
 
 ---
@@ -28,6 +30,8 @@ boilerplate/
 ├── src/
 │   ├── main.ts                     # Bootstrap REST API, Swagger & Validation
 │   ├── app.module.ts               # Root module nạp các module con
+│   ├── config/
+│   │   └── service.constants.ts    # Service path, metadata và database mặc định
 │   │
 │   ├── filter/                     # Exception filters (Global Exception Filter)
 │   ├── interceptor/                # Interceptors (Logging, Transform...)
@@ -37,15 +41,16 @@ boilerplate/
 │   │   ├── shared.module.ts        # Global Module
 │   │   ├── application/             # Transaction and messaging ports
 │   │   ├── configuration/          # Cấu hình Swagger, Logger, Naming Strategy
-│   │   ├── decorators/             # Custom decorators
+│   │   ├── decorators/auth/        # Public, Roles, AllowLocked, CurrentUser
 │   │   ├── di-tokens/              # Global Dependency Injection Tokens
 │   │   ├── domain/                 # Base Entity, Base Repo, Base Exception, VOs
 │   │   ├── infra/                  # TypeORM, RabbitMQ & transaction adapters
-│   │   ├── presentation/           # Shared DTOs, response wrappers
+│   │   ├── infrastructure/security/ # JWKS/RS256 access-token verifier
+│   │   ├── presentation/guards/    # JWT, role, locked-account, service-token guards
 │   │   └── services/               # ApiConfigService (type-safe env config)
 │   │
 │   └── modules/
-│       ├── health/                 # Health check endpoint (/health)
+│       ├── health/                 # DB health check (/api/v1/tenancy/health)
 │       ├── inbox/                   # Consumer-side dedup (processed_events)
 │       │   ├── application/         # InboxRepository port
 │       │   └── infra/               # TypeORM persistence
@@ -95,8 +100,14 @@ cp .env.example .env
 | `NODE_ENV` | `dev` / `production` | **Có** | Môi trường chạy (`dev`, `production`, `test`) |
 | `API_DOMAIN` | `localhost` | Không | Domain chạy API (dùng cho Swagger Docs) |
 | `API_VERSION` | `1.0.0` | Không | Phiên bản API hiện tại |
-| `ENABLE_DOCUMENTATION` | `true` | Không | Bật/Tắt Swagger UI tại `/swagger` |
+| `ENABLE_DOCUMENTATION` | `true` | Không | Bật/Tắt Swagger UI tại `/api/v1/tenancy/swagger` |
 | `LOG_LEVEL` | `debug` / `info` | Không | Mức độ log (`debug`, `info`, `warn`, `error`) |
+| **Xác thực** | | | |
+| `JWKS_URL` | `http://localhost:3001/api/v1/.well-known/jwks.json` | Có nếu không dùng `JWT_PUBLIC_KEY` | JWKS endpoint của Identity-Service để xác minh RS256 access token |
+| `JWT_PUBLIC_KEY` | *(PEM public key)* | Có nếu không dùng `JWKS_URL` | Public key RS256 trực tiếp; dùng thay JWKS khi cần |
+| `JWT_ISSUER` | `rentify-identity` | Không | Giá trị issuer phải khớp access token |
+| `JWT_AUDIENCE` | `rentify-api` | Không | Giá trị audience phải khớp access token |
+| `SERVICE_TOKEN` | *(để trống = tắt endpoint nội bộ)* | Không | Shared token bắt buộc cho các handler được đánh dấu `@InternalOnly()` |
 | **Cơ sở dữ liệu (PostgreSQL / Supabase)** | | | |
 | `DATABASE_URL` | `postgresql://.../tenancy_db` | Tùy chọn | Chuỗi kết nối đầy đủ; phải trỏ tới `tenancy_db` |
 | `DB_HOST` | `localhost` | Có nếu không dùng `DATABASE_URL` | Host database |
@@ -181,9 +192,11 @@ npm run migration:run
 ```bash
 npm run start:dev
 ```
-Health check: `http://localhost:3002/health`
+Health check: `http://localhost:3002/api/v1/tenancy/health`
 
-Swagger API Docs: `http://localhost:3002/swagger`
+Swagger API Docs: `http://localhost:3002/api/v1/tenancy/swagger`
+
+Các route yêu cầu access token hợp lệ mặc định; dùng `@Public()` cho route công khai và `@Roles()` để giới hạn role. Health check là route công khai nhưng vẫn kiểm tra kết nối database.
 
 ---
 

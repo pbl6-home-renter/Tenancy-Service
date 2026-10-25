@@ -13,6 +13,7 @@ import { configureSwagger } from './shared/configuration/config-swagger';
 import { ApiConfigService } from './shared/services/api-config.service';
 import { SharedModule } from './shared/shared.module';
 import { createRequestBodyVerifier } from './utils/request-body-verify.util';
+import { ServiceConstants } from './config/service.constants';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -26,10 +27,8 @@ async function bootstrap() {
   app.use(cookieParser());
 
   app.setGlobalPrefix('api/v1', {
-    exclude: [{ path: 'health', method: RequestMethod.GET }],
+    exclude: [{ path: 'internal/(.*)', method: RequestMethod.ALL }],
   });
-
-  app.enableCors();
 
   app.useGlobalPipes(new AppValidationPipe());
 
@@ -52,7 +51,9 @@ async function bootstrap() {
   const appUrl = await app.getUrl();
 
   Logger.log(`Application running on: ${appUrl}`);
-  Logger.log(`Swagger documentation: ${appUrl}/swagger`);
+  Logger.log(
+    `Swagger documentation: ${appUrl}/api/v1/${ServiceConstants.PATH}/swagger`,
+  );
 
   return app;
 }

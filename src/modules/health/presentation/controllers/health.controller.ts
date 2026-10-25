@@ -11,9 +11,12 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { DataSource } from 'typeorm';
 import { ResponseCode } from 'shared/decorators/response-code.decorator';
 import { ApiSuccessResponse } from 'shared/decorators/api-success-response.decorator';
+import { Public } from 'shared/presentation/decorators/auth/access-control.decorators';
+import { ServiceConstants } from 'config/service.constants';
 
 @ApiTags('Health')
-@Controller('health')
+@Public()
+@Controller(`${ServiceConstants.PATH}/health`)
 export class HealthController {
   private readonly logger = new Logger(HealthController.name);
 

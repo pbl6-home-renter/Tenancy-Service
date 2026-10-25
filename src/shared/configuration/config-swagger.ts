@@ -1,6 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import type { ApiConfigService } from 'shared/services/api-config.service';
+import { ServiceConstants } from 'config/service.constants';
 
 export function configureSwagger(
   app: INestApplication,
@@ -8,19 +9,17 @@ export function configureSwagger(
 ) {
   if (configService.enableSwagger) {
     const config = new DocumentBuilder()
-      .setTitle('Tenancy Service API')
-      .setDescription(
-        'API for property, tenancy, contract, and billing domains',
-      )
+      .setTitle(ServiceConstants.TITLE)
+      .setDescription(ServiceConstants.DESCRIPTION)
       .setVersion('1.0.0')
       .addBearerAuth()
       .build();
 
     const document = SwaggerModule.createDocument(app, config);
-    SwaggerModule.setup('swagger', app, document, {
-      swaggerOptions: {
-        persistAuthorization: true,
-      },
+    SwaggerModule.setup(`${ServiceConstants.PATH}/swagger`, app, document, {
+      useGlobalPrefix: true,
+      jsonDocumentUrl: `${ServiceConstants.PATH}/swagger/json`,
+      swaggerOptions: { persistAuthorization: true },
     });
   }
 }
