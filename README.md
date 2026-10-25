@@ -43,6 +43,7 @@ boilerplate/
 │       ├── health/                 # Health check endpoint
 │       ├── inbox/                  # Consumer-side dedup (processed_events)
 │       ├── outbox/                 # Transactional Outbox & relay
+│       ├── room/                   # Room aggregate và persistence
 │       └── sample/                 # [MODULE MẪU] Chuẩn Clean Architecture & CQRS
 │           ├── sample.di-token.ts
 │           ├── sample.module.ts
@@ -165,6 +166,8 @@ cp .env.example .env
 ```bash
 npm run migration:run
 ```
+
+Migration Room chưa được tạo thủ công: khi Building entity và quan hệ Room–Building đã có trong TypeORM metadata, generate migration bằng `npm run migration:generate -- src/database/migrations/CreateRooms`, review file được sinh rồi mới chạy migration.
 
 #### Bước 4: Khởi chạy ứng dụng:
 ```bash
