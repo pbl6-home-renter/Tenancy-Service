@@ -318,6 +318,12 @@ Biến môi trường: `JWKS_URL` (hoặc `JWT_PUBLIC_KEY`), `JWT_ISSUER`, `JWT_
 
 ---
 
+## Building domain and persistence
+
+P5-08a provides the Building aggregate and PostgreSQL persistence. See
+[`docs/building-domain-persistence.md`](docs/building-domain-persistence.md)
+for behavior, UoW/outbox usage, and verification commands and results.
+
 ## 🛡️ License
 
 Dự án phát hành theo giấy phép MIT.

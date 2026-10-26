@@ -7,6 +7,7 @@ import { SecurityModule } from 'shared/security.module';
 import { SampleModule } from 'modules/sample/sample.module';
 import { HealthModule } from 'modules/health/health.module';
 import { OutboxModule } from 'modules/outbox/outbox.module';
+import { BuildingModule } from 'modules/building/building.module';
 import { RoomModule } from 'modules/room/room.module';
 
 @Module({
@@ -17,6 +18,7 @@ import { RoomModule } from 'modules/room/room.module';
     RoomModule,
     OutboxModule,
     HealthModule,
+    BuildingModule,
   ],
   providers: [
     {
