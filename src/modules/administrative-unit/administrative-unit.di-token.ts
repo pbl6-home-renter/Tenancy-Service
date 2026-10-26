@@ -1,0 +1,3 @@
+export const ADMINISTRATIVE_UNIT_DI_TOKEN = {
+  CATALOG: Symbol('ADMINISTRATIVE_UNIT_CATALOG'),
+} as const;
