@@ -173,6 +173,7 @@ export class Room extends AggregateRoot {
     this._maxOccupancy = next.maxOccupancy;
     this._genderPolicy = next.genderPolicy;
     this._rentPrice = next.rentPrice;
+    this.touch();
 
     this.addDomainEvent(
       new RoomUpdatedEvent(this.id, this.currentFields(), this._status),
@@ -183,6 +184,7 @@ export class Room extends AggregateRoot {
     if (this.isDeleted) return;
 
     this.markAsDeleted();
+    this.touch();
     this.addDomainEvent(new RoomDeletedEvent(this.id));
   }
 
@@ -200,6 +202,7 @@ export class Room extends AggregateRoot {
 
     const previousStatus = this._status;
     this._status = status;
+    this.touch();
     this.addDomainEvent(
       new RoomStatusChangedEvent(this.id, previousStatus, status),
     );
@@ -236,8 +239,8 @@ export class Room extends AggregateRoot {
   private static assertValidFields(fields: RoomFields): void {
     if (
       typeof fields.name !== 'string' ||
-      fields.name.length < 1 ||
-      fields.name.length > 254
+      [...fields.name].length < 1 ||
+      [...fields.name].length > 254
     ) {
       throw new InvalidRoomException(
         'name must contain between 1 and 254 characters',
@@ -246,8 +249,8 @@ export class Room extends AggregateRoot {
     if (
       fields.description !== null &&
       (typeof fields.description !== 'string' ||
-        fields.description.length < 1 ||
-        fields.description.length > 500)
+        [...fields.description].length < 1 ||
+        [...fields.description].length > 500)
     ) {
       throw new InvalidRoomException(
         'description must be null or contain between 1 and 500 characters',
@@ -288,6 +291,10 @@ export class Room extends AggregateRoot {
     if (this.isDeleted) {
       throw new InvalidRoomException('A deleted room cannot be changed');
     }
+  }
+
+  private touch(): void {
+    this.updatedAt.setTime(Date.now());
   }
 
   private currentFields(): RoomFields {
