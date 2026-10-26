@@ -28,6 +28,7 @@
     "seed:run": "node --require ts-node/register --require tsconfig-paths/register ./node_modules/typeorm-extension/bin/cli.mjs seed:run --preserveFilePaths -d src/shared/infrastructure/database/data-source.ts",
     "outbox:requeue": "ts-node -r tsconfig-paths/register src/modules/outbox/infrastructure/cli/requeue-failed-outbox.ts",
     "outbox:requeue:prod": "node dist/modules/outbox/infrastructure/cli/requeue-failed-outbox.js",
+    "administrative-map:generate": "node scripts/generate-administrative-map.mjs",
     "prepare": "husky"
   },
   "lint-staged": {
