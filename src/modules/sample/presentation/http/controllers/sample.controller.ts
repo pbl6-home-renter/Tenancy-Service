@@ -83,7 +83,10 @@ export class SampleController {
     operationId: 'getSampleById',
     summary: 'Get sample by ID',
   })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'NOT_FOUND' })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'RESOURCE_NOT_FOUND',
+  })
   @ApiResponse({
     status: HttpStatus.INTERNAL_SERVER_ERROR,
     description: 'INTERNAL_SERVER_ERROR',
@@ -107,7 +110,10 @@ export class SampleController {
     operationId: 'deleteSample',
     summary: 'Soft-delete a sample',
   })
-  @ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'NOT_FOUND' })
+  @ApiResponse({
+    status: HttpStatus.NOT_FOUND,
+    description: 'RESOURCE_NOT_FOUND',
+  })
   @ApiResponse({
     status: HttpStatus.INTERNAL_SERVER_ERROR,
     description: 'INTERNAL_SERVER_ERROR',
