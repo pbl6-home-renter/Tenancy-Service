@@ -12,5 +12,6 @@ export interface RoomRepository extends BaseRepository<Room> {
     buildingId: Uuid,
     name: string,
     exceptRoomId?: Uuid,
+    context?: TransactionContext,
   ): Promise<boolean>;
 }

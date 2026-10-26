@@ -22,8 +22,8 @@ export class TypeOrmRoomRepository implements RoomRepository {
     );
   }
 
-  async findById(id: Uuid): Promise<Room | null> {
-    const raw = await this.repository.findOne({
+  async findById(id: Uuid, context?: TransactionContext): Promise<Room | null> {
+    const raw = await withTransaction(this.repository, context).findOne({
       where: { id, isDeleted: false },
     });
     return raw ? RoomMapper.toDomain(raw) : null;
@@ -44,8 +44,9 @@ export class TypeOrmRoomRepository implements RoomRepository {
     buildingId: Uuid,
     name: string,
     exceptRoomId?: Uuid,
+    context?: TransactionContext,
   ): Promise<boolean> {
-    const query = this.repository
+    const query = withTransaction(this.repository, context)
       .createQueryBuilder('room')
       .where('room.buildingId = :buildingId', { buildingId })
       .andWhere('room.name = :name', { name })
