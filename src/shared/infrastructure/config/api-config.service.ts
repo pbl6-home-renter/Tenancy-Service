@@ -10,6 +10,7 @@ import { OutboxConfig } from 'shared/application/messaging/outbox.config';
 import { RabbitMqConfig } from './rabbitmq.config';
 import { AuthConfig } from './auth.config';
 import { PeerServicesConfig } from './peer-services.config';
+import { GeocodingConfig } from './geocoding.config';
 
 @Injectable()
 export class ApiConfigService {
@@ -157,6 +158,22 @@ export class ApiConfigService {
       timeoutMs: getConfigNumber(
         this.configService,
         'INTERNAL_HTTP_TIMEOUT_MS',
+        3000,
+      ),
+    };
+  }
+
+  get geocoding(): GeocodingConfig {
+    return {
+      apiKey: getConfigString(this.configService, 'TRACKASIA_API_KEY', ''),
+      baseUrl: getConfigString(
+        this.configService,
+        'TRACKASIA_BASE_URL',
+        'https://maps.track-asia.com',
+      ),
+      timeoutMs: getConfigNumber(
+        this.configService,
+        'TRACKASIA_TIMEOUT_MS',
         3000,
       ),
     };

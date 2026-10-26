@@ -1,3 +1,4 @@
 export const BUILDING_DI_TOKEN = {
   REPOSITORY: Symbol('BUILDING_REPOSITORY'),
+  GEOCODING: Symbol('BUILDING_GEOCODING'),
 } as const;
