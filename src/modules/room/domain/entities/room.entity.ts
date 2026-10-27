@@ -21,6 +21,7 @@ import {
   isRoomAmenityKey,
   RoomAmenities,
 } from '../value-objects/room-amenities.vo';
+import { InvalidRoomTransitionException } from '../exceptions/invalid-room-transition.exception';
 
 export class Room extends AggregateRoot {
   private _floorNumber: number | null;
@@ -206,6 +207,18 @@ export class Room extends AggregateRoot {
     this.addDomainEvent(
       new RoomStatusChangedEvent(this.id, previousStatus, status),
     );
+  }
+
+  markReady(): void {
+    this.assertNotDeleted();
+    if (this._status !== RoomStatus.MAINTENANCE) {
+      throw new InvalidRoomTransitionException(
+        this._status,
+        RoomStatus.AVAILABLE,
+      );
+    }
+
+    this.changeStatus(RoomStatus.AVAILABLE);
   }
 
   private assertValid(): void {

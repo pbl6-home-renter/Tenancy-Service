@@ -6,15 +6,18 @@ import { OffsetPageInfo } from 'shared/application/pagination/offset-page-info';
 
 export class TypeOrmOffsetPaginator<TEntity extends ObjectLiteral> {
   private sortConfig?: SortOptionConfig;
+  private readonly options: OffsetPageQuery<unknown>;
 
   constructor(
     private readonly queryBuilder: SelectQueryBuilder<TEntity>,
-    private readonly options: OffsetPageQuery,
-  ) {}
+    options: OffsetPageQuery<unknown>,
+  ) {
+    this.options = options;
+  }
 
   public static of<TEntity extends ObjectLiteral>(
     queryBuilder: SelectQueryBuilder<TEntity>,
-    options: OffsetPageQuery,
+    options: OffsetPageQuery<unknown>,
   ): TypeOrmOffsetPaginator<TEntity> {
     return new TypeOrmOffsetPaginator(queryBuilder, options);
   }
