@@ -1,0 +1,6 @@
+export const RoomResponseCodeConstant = {
+  ROOMS_MY_FETCHED: 'ROOMS_MY_FETCHED',
+  ROOM_UPDATED: 'ROOM_UPDATED',
+  ROOM_DELETED: 'ROOM_DELETED',
+  ROOM_MARKED_READY: 'ROOM_MARKED_READY',
+} as const;

@@ -4,8 +4,14 @@ import { Repository } from 'typeorm';
 import { TransactionContext } from 'shared/domain/repositories/transaction-context';
 import { Uuid } from 'shared/domain/value-objects/uuid.vo';
 import { withTransaction } from 'shared/infrastructure/database/transaction/typeorm-transaction-context';
+import { TypeOrmOffsetPaginator } from 'shared/infrastructure/database/pagination/offset.paginator';
+import { OffsetPageQuery } from 'shared/application/pagination/offset-page-query';
+import { PaginatedResult } from 'shared/application/pagination/paginated-result';
 import { Room } from '../../domain/entities/room.entity';
-import { RoomRepository } from '../../domain/repositories/room.repository';
+import {
+  RoomListFilter,
+  RoomRepository,
+} from '../../domain/repositories/room.repository';
 import { RoomMapper } from './mappers/room.mapper';
 import { RoomTypeormEntity } from './room.typeorm-entity';
 
@@ -20,6 +26,44 @@ export class TypeOrmRoomRepository implements RoomRepository {
     await withTransaction(this.repository, context).save(
       RoomMapper.toPersistence(room),
     );
+  }
+
+  async findOwnedPaginated(
+    landlordId: Uuid,
+    options: OffsetPageQuery<RoomListFilter>,
+  ): Promise<PaginatedResult<Room>> {
+    const query = this.repository
+      .createQueryBuilder('room')
+      .where('room.landlordId = :landlordId', { landlordId })
+      .andWhere('room.isDeleted = false');
+
+    if (options.filter?.buildingId) {
+      query.andWhere('room.buildingId = :buildingId', {
+        buildingId: options.filter.buildingId,
+      });
+    }
+    if (options.filter?.status) {
+      query.andWhere('room.status = :status', {
+        status: options.filter.status,
+      });
+    }
+
+    return TypeOrmOffsetPaginator.of(query, options)
+      .withSort({
+        whitelist: [
+          'name',
+          'rentPrice',
+          'area',
+          'floorNumber',
+          'status',
+          'createdAt',
+          'updatedAt',
+        ],
+        defaultSort: 'rentPrice',
+        defaultOrder: 'asc',
+        alias: 'room',
+      })
+      .paginate(RoomMapper.toDomain);
   }
 
   async findById(id: Uuid, context?: TransactionContext): Promise<Room | null> {
