@@ -49,15 +49,24 @@ jobs:
     name: Deploy to AWS EC2
     needs: build-and-push
     runs-on: ubuntu-latest
-    if: ${{ (github.event_name == 'push' || inputs.deploy_to_ec2 == true) && secrets.EC2_HOST != '' }}
+    if: ${{ github.event_name == 'push' || inputs.deploy_to_ec2 == true }}
+    env:
+      EC2_HOST: ${{ secrets.EC2_HOST }}
+      EC2_USER: ${{ secrets.EC2_USER }}
+      EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
 
     steps:
+      - name: Skip deployment when EC2 secrets are not configured
+        if: ${{ env.EC2_HOST == '' || env.EC2_SSH_KEY == '' }}
+        run: echo "::notice::EC2 deployment skipped because EC2_HOST or EC2_SSH_KEY is not configured."
+
       - name: SSH to EC2 and Trigger Deployment
+        if: ${{ env.EC2_HOST != '' && env.EC2_SSH_KEY != '' }}
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER || 'ubuntu' }}
-          key: ${{ secrets.EC2_SSH_KEY }}
+          host: ${{ env.EC2_HOST }}
+          username: ${{ env.EC2_USER || 'ubuntu' }}
+          key: ${{ env.EC2_SSH_KEY }}
           script: |
             set -e
             echo "[+] Accessing infra directory..."
