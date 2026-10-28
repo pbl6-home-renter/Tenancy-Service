@@ -41,7 +41,7 @@ jobs:
           context: .
           platforms: linux/amd64
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/rentify-backend:latest
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/tenancy-service:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
