@@ -10,18 +10,29 @@ import { RoomGetMyRoomsQueryHandler } from './application/queries/room-get-my-ro
 import { RoomUpdateCommandHandler } from './application/commands/room-update/room-update.command.handler';
 import { RoomDeleteCommandHandler } from './application/commands/room-delete/room-delete.command.handler';
 import { RoomMarkReadyCommandHandler } from './application/commands/room-mark-ready/room-mark-ready.command.handler';
+import { BuildingModule } from 'modules/building/building.module';
+import { RoomCreateCommandHandler } from './application/commands/room-create/room-create.command.handler';
+import { TypeOrmRoomReadRepository } from './infrastructure/persistence/room-read.repository';
+import { RoomPublicSearchQueryHandler } from './application/queries/room-public-search/room-public-search.query.handler';
+import { RoomGetDetailQueryHandler } from './application/queries/room-get-detail/room-get-detail.query.handler';
 
 const commandHandlers = [
+  RoomCreateCommandHandler,
   RoomUpdateCommandHandler,
   RoomDeleteCommandHandler,
   RoomMarkReadyCommandHandler,
 ];
-const queryHandlers = [RoomGetMyRoomsQueryHandler];
+const queryHandlers = [
+  RoomGetMyRoomsQueryHandler,
+  RoomPublicSearchQueryHandler,
+  RoomGetDetailQueryHandler,
+];
 
 @Module({
   imports: [
     CqrsModule,
     TypeOrmModule.forFeature([RoomTypeormEntity]),
+    BuildingModule,
     OutboxModule,
   ],
   controllers: [RoomController],
@@ -29,6 +40,10 @@ const queryHandlers = [RoomGetMyRoomsQueryHandler];
     {
       provide: ROOM_DI_TOKEN.REPOSITORY,
       useClass: TypeOrmRoomRepository,
+    },
+    {
+      provide: ROOM_DI_TOKEN.READ_REPOSITORY,
+      useClass: TypeOrmRoomReadRepository,
     },
     ...commandHandlers,
     ...queryHandlers,

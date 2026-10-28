@@ -22,6 +22,7 @@ export class RoomCreatedEvent implements DomainEvent {
       id: aggregateId,
       ...fields,
       amenities: { ...fields.amenities },
+      depositAmount: fields.depositAmount,
       status: RoomStatus.AVAILABLE,
     };
   }

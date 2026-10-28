@@ -14,6 +14,7 @@ export interface RoomFields {
   maxOccupancy: number | null;
   genderPolicy: GenderPolicy;
   rentPrice: number;
+  depositAmount: number;
 }
 
 export interface CreateRoomProps extends Omit<

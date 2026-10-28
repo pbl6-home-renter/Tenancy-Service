@@ -1,3 +1,4 @@
 export const ROOM_DI_TOKEN = {
   REPOSITORY: Symbol('ROOM_REPOSITORY'),
+  READ_REPOSITORY: Symbol('ROOM_READ_REPOSITORY'),
 } as const;
