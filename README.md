@@ -209,7 +209,6 @@ bước tạo domain, repository, use case, controller, module. Module `sample` 
 | `npm run migration:generate -- name=MigrationName` | Tự động sinh migration từ Entity thay đổi          |
 | `npm run migration:run`                            | Áp dụng các migration chưa chạy vào Database       |
 | `npm run migration:revert`                         | Hoàn tác migration gần nhất                        |
-| `npm run test`                                     | Chạy unit test với Jest                            |
 
 ---
 
@@ -323,6 +322,11 @@ Biến môi trường: `JWKS_URL` (hoặc `JWT_PUBLIC_KEY`), `JWT_ISSUER`, `JWT_
 P5-08a provides the Building aggregate and PostgreSQL persistence. See
 [`docs/building-domain-persistence.md`](docs/building-domain-persistence.md)
 for behavior, UoW/outbox usage, and verification commands and results.
+
+## Building landlord management
+
+P5-08c adds landlord Building list/detail queries, updates with geocoding, and
+soft-delete through UoW/outbox.
 
 ## 🛡️ License
 
