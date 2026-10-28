@@ -28,6 +28,7 @@ const nullableDecimalTransformer = {
 @Check('CHK_rooms_area', 'area IS NULL OR area > 0')
 @Check('CHK_rooms_max_occupancy', 'max_occupancy IS NULL OR max_occupancy > 0')
 @Check('CHK_rooms_rent_price', 'rent_price >= 0')
+@Check('CHK_rooms_deposit_amount', 'deposit_amount >= 0')
 @Check('CHK_rooms_amenities_object', "jsonb_typeof(amenities) = 'object'")
 export class RoomTypeormEntity extends AbstractEntity {
   @Column({ type: 'uuid', name: 'landlord_id' })
@@ -75,6 +76,18 @@ export class RoomTypeormEntity extends AbstractEntity {
     },
   })
   rentPrice: number;
+
+  @Column({
+    type: 'numeric',
+    precision: 12,
+    scale: 0,
+    name: 'deposit_amount',
+    transformer: {
+      to: (value: number): number => value,
+      from: (value: string | number): number => Number(value),
+    },
+  })
+  depositAmount: number;
 
   @Column({
     type: 'enum',

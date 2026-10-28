@@ -22,6 +22,7 @@ import {
   RoomAmenities,
 } from '../value-objects/room-amenities.vo';
 import { InvalidRoomTransitionException } from '../exceptions/invalid-room-transition.exception';
+import { DepositAmount } from '../value-objects/deposit-amount.vo';
 
 export class Room extends AggregateRoot {
   private _floorNumber: number | null;
@@ -32,6 +33,7 @@ export class Room extends AggregateRoot {
   private _maxOccupancy: number | null;
   private _genderPolicy: GenderPolicy;
   private _rentPrice: number;
+  private readonly _depositAmount: DepositAmount;
   private _status: RoomStatus;
 
   private constructor(
@@ -46,6 +48,7 @@ export class Room extends AggregateRoot {
     maxOccupancy: number | null,
     genderPolicy: GenderPolicy,
     rentPrice: number,
+    depositAmount: DepositAmount,
     status: RoomStatus,
     createdAt: Date,
     updatedAt: Date,
@@ -60,6 +63,7 @@ export class Room extends AggregateRoot {
     this._maxOccupancy = maxOccupancy;
     this._genderPolicy = genderPolicy;
     this._rentPrice = rentPrice;
+    this._depositAmount = depositAmount;
     this._status = status;
   }
 
@@ -77,6 +81,7 @@ export class Room extends AggregateRoot {
       props.maxOccupancy ?? null,
       props.genderPolicy ?? GenderPolicy.ANY,
       props.rentPrice,
+      DepositAmount.create(props.depositAmount),
       RoomStatus.AVAILABLE,
       props.createdAt ?? now,
       props.updatedAt ?? now,
@@ -100,6 +105,7 @@ export class Room extends AggregateRoot {
       props.maxOccupancy,
       props.genderPolicy,
       props.rentPrice,
+      DepositAmount.create(props.depositAmount),
       props.status,
       props.createdAt,
       props.updatedAt,
@@ -147,6 +153,10 @@ export class Room extends AggregateRoot {
 
   get rentPrice(): number {
     return this._rentPrice;
+  }
+
+  get depositAmount(): DepositAmount {
+    return this._depositAmount;
   }
 
   get status(): RoomStatus {
@@ -290,6 +300,7 @@ export class Room extends AggregateRoot {
     if (!Number.isFinite(fields.rentPrice) || fields.rentPrice < 0) {
       throw new InvalidRoomException('rentPrice must be a non-negative number');
     }
+    DepositAmount.create(fields.depositAmount);
     if (!isPlainObject(fields.amenities)) {
       throw new InvalidRoomException('amenities must be an object');
     }
@@ -322,6 +333,7 @@ export class Room extends AggregateRoot {
       maxOccupancy: this._maxOccupancy,
       genderPolicy: this._genderPolicy,
       rentPrice: this._rentPrice,
+      depositAmount: this._depositAmount.value,
     };
   }
 }

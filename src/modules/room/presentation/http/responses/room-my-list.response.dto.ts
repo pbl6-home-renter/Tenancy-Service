@@ -13,9 +13,6 @@ export class RoomMyListResponseDto {
   name: string;
 
   @ApiPropertyOptional({ type: 'string', nullable: true })
-  roomType: null = null;
-
-  @ApiPropertyOptional({ type: 'string', nullable: true })
   area: string | null;
 
   @ApiProperty({ minimum: 0 })

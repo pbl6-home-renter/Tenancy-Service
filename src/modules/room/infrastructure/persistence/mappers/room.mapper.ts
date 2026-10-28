@@ -15,6 +15,7 @@ export class RoomMapper {
       maxOccupancy: raw.maxOccupancy,
       genderPolicy: raw.genderPolicy,
       rentPrice: raw.rentPrice,
+      depositAmount: raw.depositAmount,
       status: raw.status,
       createdAt: raw.createdAt,
       updatedAt: raw.updatedAt,
@@ -35,6 +36,7 @@ export class RoomMapper {
     raw.maxOccupancy = room.maxOccupancy;
     raw.genderPolicy = room.genderPolicy;
     raw.rentPrice = room.rentPrice;
+    raw.depositAmount = room.depositAmount.value;
     raw.status = room.status;
     raw.createdAt = room.createdAt;
     raw.updatedAt = room.updatedAt;
