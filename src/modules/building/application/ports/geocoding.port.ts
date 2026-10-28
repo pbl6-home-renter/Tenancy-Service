@@ -10,8 +10,9 @@ export interface GeocodedCoordinate {
 }
 
 /**
- * Resolves a Building address to coordinates. Call it before `unitOfWork.run()`
- * so no transaction is held open during the HTTP call.
+ * Resolves a Building address to coordinates. Creation resolves coordinates
+ * before opening a transaction. Updates resolve them after locking and
+ * validating the Building, keeping that transaction open during the HTTP call.
  *
  * Rejects with `GeocodingFailedException` (address cannot be located, 422) or
  * `GeocodingUnavailableException` (provider down, timed out or misconfigured, 503).
