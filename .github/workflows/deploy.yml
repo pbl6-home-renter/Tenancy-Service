@@ -62,5 +62,6 @@ jobs:
             set -e
             echo "[+] Accessing infra directory..."
             cd /home/ubuntu/infra || cd ~/infra
+            git pull --ff-only
             echo "[+] Pulling latest images & reloading containers..."
-            ./scripts/deploy.sh
+            DEPLOY_STACK=internal bash ./scripts/deploy.sh tenancy
