@@ -1,3 +1,5 @@
+import { Uuid } from 'shared/domain/value-objects/uuid.vo';
+import { BuildingListMineQuery } from '../../../application/queries/building-list-mine/building-list-mine.query';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
@@ -44,4 +46,11 @@ export class BuildingListMineQueryRequestDto extends OffsetPaginationQueryReques
   @IsOptional()
   @IsIn(['json'])
   format = 'json' as const;
+
+  static toQuery(
+    request: BuildingListMineQueryRequestDto,
+    landlordId: Uuid,
+  ): BuildingListMineQuery {
+    return new BuildingListMineQuery(landlordId, request);
+  }
 }
