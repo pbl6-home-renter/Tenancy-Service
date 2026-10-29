@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CqrsModule } from '@nestjs/cqrs';
 import { OutboxModule } from 'modules/outbox/outbox.module';
+import { InternalHttpModule } from 'shared/infrastructure/http/internal-http.module';
 import { BuildingCreateCommandHandler } from './application/commands/building-create/building-create.command.handler';
 import { BuildingUpdateCommandHandler } from './application/commands/building-update/building-update.command.handler';
 import { BuildingDeleteCommandHandler } from './application/commands/building-delete/building-delete.command.handler';
@@ -14,13 +15,23 @@ import { BUILDING_DI_TOKEN } from './building.di-token';
 import { TrackAsiaGeocodingAdapter } from './infrastructure/geocoding/trackasia-geocoding.adapter';
 import { TypeOrmBuildingRepository } from './infrastructure/persistence/building.repository';
 import { BuildingTypeormEntity } from './infrastructure/persistence/building.typeorm-entity';
+import { BuildingApproveCommandHandler } from './application/commands/building-approve/building-approve.command.handler';
+import { BuildingRejectCommandHandler } from './application/commands/building-reject/building-reject.command.handler';
+import { BuildingListForAdminQueryHandler } from './application/queries/building-list-for-admin/building-list-for-admin.query.handler';
+import { BuildingGetAdminQueryHandler } from './application/queries/building-get-admin/building-get-admin.query.handler';
+import { AdminBuildingController } from './presentation/http/controllers/admin-building.controller';
+import { InternalUserService } from './infrastructure/services/internal-user.service';
 
 const commandHandlers = [
+  BuildingApproveCommandHandler,
+  BuildingRejectCommandHandler,
   BuildingCreateCommandHandler,
   BuildingUpdateCommandHandler,
   BuildingDeleteCommandHandler,
 ];
 const queryHandlers = [
+  BuildingListForAdminQueryHandler,
+  BuildingGetAdminQueryHandler,
   BuildingListMineQueryHandler,
   BuildingGetMineQueryHandler,
 ];
@@ -30,9 +41,14 @@ const queryHandlers = [
     CqrsModule,
     TypeOrmModule.forFeature([BuildingTypeormEntity]),
     HttpModule,
+    InternalHttpModule,
     OutboxModule,
   ],
-  controllers: [BuildingController, MyBuildingController],
+  controllers: [
+    BuildingController,
+    MyBuildingController,
+    AdminBuildingController,
+  ],
   providers: [
     ...commandHandlers,
     ...queryHandlers,
@@ -43,6 +59,10 @@ const queryHandlers = [
     {
       provide: BUILDING_DI_TOKEN.GEOCODING,
       useClass: TrackAsiaGeocodingAdapter,
+    },
+    {
+      provide: BUILDING_DI_TOKEN.INTERNAL_USER,
+      useClass: InternalUserService,
     },
   ],
   exports: [BUILDING_DI_TOKEN.REPOSITORY, BUILDING_DI_TOKEN.GEOCODING],

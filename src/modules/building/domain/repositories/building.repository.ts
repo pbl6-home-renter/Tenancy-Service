@@ -10,7 +10,18 @@ export type MyBuildingFilter = {
   status?: BuildingStatus;
 };
 
+export type AdminBuildingFilter = {
+  status?: BuildingStatus;
+  landlordId?: Uuid;
+  province?: string;
+  ward?: string;
+  q?: string;
+};
+
 export interface BuildingRepository extends BaseRepository<BuildingEntity> {
+  findPaginatedForAdmin(
+    query: OffsetPageQuery<AdminBuildingFilter>,
+  ): Promise<PaginatedResult<BuildingEntity>>;
   findMyBuildings(
     landlordId: Uuid,
     query: OffsetPageQuery<MyBuildingFilter>,

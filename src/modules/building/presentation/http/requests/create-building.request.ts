@@ -1,5 +1,7 @@
 import { ApiProperty, ApiSchema } from '@nestjs/swagger';
 import { IsString, Length } from 'class-validator';
+import { Uuid } from 'shared/domain/value-objects/uuid.vo';
+import { BuildingCreateCommand } from '../../../application/commands/building-create/building-create.command';
 
 @ApiSchema({ name: 'BuildingCreateRequestDto' })
 export class CreateBuildingRequest {
@@ -26,4 +28,17 @@ export class CreateBuildingRequest {
   @IsString()
   @Length(1, 254)
   address: string;
+
+  static toCommand(
+    request: CreateBuildingRequest,
+    landlordId: Uuid,
+  ): BuildingCreateCommand {
+    return new BuildingCreateCommand(
+      landlordId,
+      request.name,
+      request.province,
+      request.ward,
+      request.address,
+    );
+  }
 }

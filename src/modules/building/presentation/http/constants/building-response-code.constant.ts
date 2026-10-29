@@ -1,4 +1,8 @@
 export class BuildingResponseCodeConstant {
+  static readonly BUILDINGS_ADMIN_FETCHED = 'BUILDINGS_ADMIN_FETCHED';
+  static readonly BUILDING_ADMIN_FETCHED = 'BUILDING_ADMIN_FETCHED';
+  static readonly BUILDING_APPROVED = 'BUILDING_APPROVED';
+  static readonly BUILDING_REJECTED = 'BUILDING_REJECTED';
   static readonly BUILDING_CREATED = 'BUILDING_CREATED';
   static readonly BUILDINGS_MY_FETCHED = 'BUILDINGS_MY_FETCHED';
   static readonly BUILDING_MY_FETCHED = 'BUILDING_MY_FETCHED';

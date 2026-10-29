@@ -9,6 +9,7 @@ import { withTransaction } from 'shared/infrastructure/database/transaction/type
 import { TypeOrmPaginator } from 'shared/infrastructure/database/pagination/typeorm.paginator';
 import { BuildingEntity } from '../../domain/entities/building.entity';
 import {
+  AdminBuildingFilter,
   BuildingRepository,
   MyBuildingFilter,
 } from '../../domain/repositories/building.repository';
@@ -39,6 +40,45 @@ export class TypeOrmBuildingRepository implements BuildingRepository {
       where: { id, isDeleted: false },
     });
     return raw ? BuildingMapper.toDomain(raw) : null;
+  }
+
+  async findPaginatedForAdmin(
+    query: OffsetPageQuery<AdminBuildingFilter>,
+  ): Promise<PaginatedResult<BuildingEntity>> {
+    const qb = this.repository
+      .createQueryBuilder('building')
+      .where('building.isDeleted = :isDeleted', { isDeleted: false });
+    const filter = query.filter;
+    if (filter?.status) {
+      qb.andWhere('building.status = :status', { status: filter.status });
+    }
+    if (filter?.landlordId) {
+      qb.andWhere('building.landlordId = :landlordId', {
+        landlordId: filter.landlordId,
+      });
+    }
+    if (filter?.province) {
+      qb.andWhere('building.province = :province', {
+        province: filter.province,
+      });
+    }
+    if (filter?.ward) {
+      qb.andWhere('building.ward = :ward', { ward: filter.ward });
+    }
+    if (filter?.q) {
+      qb.andWhere(
+        '(LOWER(building.name) LIKE :q OR LOWER(building.address) LIKE :q)',
+        { q: `%${filter.q.toLowerCase()}%` },
+      );
+    }
+    return TypeOrmPaginator.offset(qb, query)
+      .withSort({
+        whitelist: ['createdAt', 'name', 'status'],
+        defaultSort: 'createdAt',
+        defaultOrder: 'asc',
+        alias: 'building',
+      })
+      .paginate(BuildingMapper.toDomain);
   }
 
   async findMyBuildings(
