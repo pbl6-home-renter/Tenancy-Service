@@ -1,333 +1,358 @@
-# NestJS Clean Architecture & CQRS Boilerplate
+<div align="center">
 
-Boilerplate chuẩn doanh nghiệp (Enterprise-ready) tinh gọn và rõ ràng, được xây dựng dựa trên **Clean Architecture**, **Domain-Driven Design (DDD)** và **CQRS (Command Query Responsibility Segregation)** trên nền tảng **NestJS** và **TypeORM (PostgreSQL)**.
+<h1>Rentify · Tenancy Service</h1>
 
----
+<p>Service quản lý tòa nhà, phòng trọ và đơn vị hành chính Việt Nam của nền tảng Rentify.</p>
 
-## 🚀 Tính năng nổi bật (Key Features)
+<p>
+  <a href="https://github.com/pbl6-home-renter/Tenancy-Service/actions/workflows/deploy.yml"><img alt="Deploy" src="https://github.com/pbl6-home-renter/Tenancy-Service/actions/workflows/deploy.yml/badge.svg"></a>
+  <a href="https://github.com/pbl6-home-renter/Tenancy-Service/actions/workflows/db-keepalive.yml"><img alt="DB Keepalive" src="https://github.com/pbl6-home-renter/Tenancy-Service/actions/workflows/db-keepalive.yml/badge.svg"></a>
+  <img alt="Node.js" src="https://img.shields.io/badge/Node.js-24.18-339933?style=flat-square&logo=nodedotjs&logoColor=white">
+  <img alt="NestJS" src="https://img.shields.io/badge/NestJS-12-E0234E?style=flat-square&logo=nestjs&logoColor=white">
+  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-6-3178C6?style=flat-square&logo=typescript&logoColor=white">
+  <img alt="TypeORM" src="https://img.shields.io/badge/TypeORM-1.1-FE0803?style=flat-square&logo=typeorm&logoColor=white">
+  <img alt="PostgreSQL" src="https://img.shields.io/badge/PostgreSQL-Supabase-4169E1?style=flat-square&logo=postgresql&logoColor=white">
+  <img alt="RabbitMQ" src="https://img.shields.io/badge/RabbitMQ-topic_exchange-FF6600?style=flat-square&logo=rabbitmq&logoColor=white">
+  <img alt="Docker" src="https://img.shields.io/badge/Docker-linux%2Famd64-2496ED?style=flat-square&logo=docker&logoColor=white">
+</p>
 
-- **Kiến trúc phân tầng sạch (Clean Architecture & DDD)**: Tách biệt hoàn toàn giữa tầng Domain, Use-case (Application), Infrastructure và Presentation. Business logic không phụ thuộc vào framework hay cơ sở dữ liệu.
-- **CQRS Pattern (@nestjs/cqrs)**: Tách bạch rõ ràng giữa Commands (Ghi/Sửa/Xóa dữ liệu), Queries (Đọc dữ liệu) và Events (Xử lý sự kiện nội bộ).
-- **Dependency Inversion (DI Tokens)**: Sử dụng Symbol DI Token để đảo ngược phụ thuộc giữa Domain và Infrastructure.
-- **Cơ sở dữ liệu (TypeORM & PostgreSQL)**: Cấu hình Data Source tối ưu, tự động mapping snake_case naming strategy, hỗ trợ Migration và Database Seeding (`typeorm-extension`).
-- **Global Exception Filter chuẩn Clean Architecture**: Tự động nhận diện Domain Exception (`DomainException`), NestJS `HttpException`, và Validation errors để map HTTP status code chuẩn xác (404, 409, 400...).
-- **Tài liệu API tự động (Swagger/OpenAPI)**: Tự động sinh tài liệu API trực quan tại `/swagger`.
-- **Bộ khung thuần khiết (Pure Skeleton)**: Không chứa logic nghiệp vụ dư thừa, dễ dàng sao chép và mở rộng cho bất kỳ dự án nào.
+<p>
+  <a href="#giới-thiệu">Giới thiệu</a> •
+  <a href="#bắt-đầu-nhanh">Bắt đầu nhanh</a> •
+  <a href="#biến-môi-trường">Biến môi trường</a> •
+  <a href="#kiến-trúc">Kiến trúc</a> •
+  <a href="#api--tài-liệu">API</a> •
+  <a href="#triển-khai">Triển khai</a> •
+  <a href="#đóng-góp">Đóng góp</a>
+</p>
 
----
+</div>
 
-## 📁 Cấu trúc thư mục (Directory Structure)
+## Giới thiệu
 
-```text
-boilerplate/
-├── .github/
-│   └── workflows/
-│       ├── db-keepalive.yml        # Job tự động giữ kết nối Supabase
-│       └── deploy.yml              # CI/CD Build linux/amd64 & Deploy EC2
-├── scripts/                        # Scripts bổ trợ (keepalive, migration...)
-├── src/
-│   ├── main.ts                     # Bootstrap REST API, Swagger & Validation
-│   ├── app.module.ts               # Root module nạp các module con
-│   ├── config/service.constants.ts # ServiceConstants: PATH, tên Swagger, DB mặc định
-│   ├── database/migrations/        # Migration của service
-│   │
-│   ├── shared/                     # Shared kernel, giống hệt nhau giữa các service
-│   │   ├── shared.module.ts        # Global Module (Config, TypeORM, RabbitMQ, UnitOfWork)
-│   │   ├── security.module.ts      # Guard toàn cục
-│   │   ├── domain/                 # BaseEntity, AggregateRoot, DomainException, Uuid, BaseRepository
-│   │   ├── application/            # Port (UnitOfWork, publisher), phân trang, contract xác thực
-│   │   ├── infrastructure/         # Config, TypeORM, RabbitMQ, verify access token
-│   │   └── presentation/           # Guard, decorator, validator, filter/interceptor/pipe/middleware HTTP
-│   │
-│   └── modules/
-│       ├── health/                 # Health check endpoint
-│       ├── inbox/                  # Consumer-side dedup (processed_events)
-│       ├── outbox/                 # Transactional Outbox & relay
-│       ├── room/                   # Room aggregate và persistence
-│       └── sample/                 # [MODULE MẪU] Chuẩn Clean Architecture & CQRS
-│           ├── sample.di-token.ts
-│           ├── sample.module.ts
-│           ├── domain/             # Entities, events, exceptions, repository interface
-│           ├── application/
-│           │   ├── commands/sample-create/   # SampleCreateCommand + handler
-│           │   └── queries/sample-get-by-id/ # SampleGetByIdQuery + handler
-│           ├── infrastructure/
-│           │   └── persistence/    # TypeORM entity, repository, mappers/
-│           └── presentation/
-│               ├── http/           # controllers/, requests/, responses/, constants/
-│               └── messaging/      # RabbitMQ subscriber
-│
-├── .env.example                    # Template biến môi trường
-├── Dockerfile                      # Multi-stage Dockerfile (build & runner)
-├── .dockerignore
-├── start.sh                        # Entrypoint script khởi động container
-├── package.json
-└── tsconfig.json
+**Tenancy Service** là bounded context "nhà trọ" của Rentify: chủ trọ đăng ký tòa nhà (được geocode qua TrackAsia và chờ admin duyệt), tạo và quản lý phòng trong tòa nhà đã duyệt; người dùng (kể cả khách chưa đăng nhập) tìm kiếm tòa nhà/phòng công khai; client tra cứu danh mục tỉnh/phường Việt Nam theo đơn vị hành chính mới.
+
+Service được fork từ [`boilerplate`](https://github.com/pbl6-home-renter/boilerplate) nên dùng chung kiến trúc **Clean Architecture + DDD + CQRS**, Transactional Outbox/Inbox với RabbitMQ và internal HTTP client để đọc dữ liệu từ service khác. Chạy ở cổng **3002**, nằm sau [`api-gateway`](https://github.com/pbl6-home-renter/api-gateway) với path segment `tenancy` (`ServiceConstants.PATH`).
+
+## Tính năng nổi bật
+
+- **Tòa nhà (Building)** — chủ trọ tạo/sửa/xóa mềm tòa nhà; địa chỉ được geocode bằng TrackAsia (chỉ chấp nhận kết quả đủ chính xác, nằm trong lãnh thổ Việt Nam). Vòng đời `pending → approved | rejected`, admin duyệt/từ chối kèm ghi chú; tòa nhà đã duyệt bị khóa chỉnh sửa.
+- **Phòng (Room)** — chỉ tạo được trong tòa nhà đã duyệt; giá thuê, tiền cọc, diện tích, tầng, tiện ích, sức chứa, chính sách giới tính (`any | male | female`). Trạng thái `available | occupied | maintenance`, có thao tác `mark-ready` (`maintenance → available`).
+- **Tìm kiếm công khai** — lọc tòa nhà theo tỉnh/phường/từ khóa; lọc phòng theo tỉnh/phường/khoảng giá/chính sách giới tính, có phân trang.
+- **Đơn vị hành chính** — danh mục tỉnh và phường (dữ liệu v2 từ `provinces.open-api.vn`) được đóng gói sẵn dạng JSON snapshot, phục vụ cục bộ, không phụ thuộc mạng lúc runtime.
+- **Hợp đồng (Contract)** — đã có domain + persistence (bảng `contracts`, trạng thái `draft | signed | active | suspended | expired | terminated`); chưa expose HTTP endpoint.
+- **Sự kiện tin cậy** — mọi thay đổi aggregate ghi kèm `outbox_messages` trong cùng transaction, relay publish lên RabbitMQ topic exchange (at-least-once, retry + DLQ).
+- **Bảo mật** — tự verify JWT RS256 của Identity-Service qua JWKS cache; phân quyền `LANDLORD` / `ADMIN`, kiểm tra quyền sở hữu trong use case.
+
+## Tech stack
+
+| Thành phần | Công nghệ |
+|---|---|
+| Runtime | Node.js `>=24.18.0` (`.nvmrc`: `v24.18.0`) |
+| Framework | NestJS 12, `@nestjs/cqrs` |
+| Ngôn ngữ | TypeScript 6 |
+| Cơ sở dữ liệu | PostgreSQL (Supabase), TypeORM 1.1, `typeorm-extension` |
+| Message broker | RabbitMQ qua `@golevelup/nestjs-rabbitmq` (publisher confirm) |
+| Xác thực | JWT RS256 + JWKS (`jose`) |
+| Geocoding | TrackAsia Search API (`@nestjs/axios`) |
+| Tài liệu API | Swagger (`@nestjs/swagger`) |
+| Chất lượng code | oxlint, Prettier, Husky + lint-staged |
+| Đóng gói | Docker multi-stage (`node:24.18.0-slim`) |
+
+## Bắt đầu nhanh
+
+### Yêu cầu
+
+- Node.js `24.18.0` và npm
+- PostgreSQL (khuyến nghị Supabase) và RabbitMQ đang chạy
+- Identity-Service đang chạy (cung cấp JWKS để verify token, và `internal/users` cho màn hình admin)
+- TrackAsia API key nếu cần tạo/sửa địa chỉ tòa nhà
+
+### Cài đặt
+
+```bash
+git clone https://github.com/pbl6-home-renter/Tenancy-Service.git
+cd Tenancy-Service
+npm install
 ```
 
----
-
-## ⚙️ Cấu hình biến môi trường (Environment Variables)
-
-Hệ thống sử dụng file `.env` được đọc và validate thông qua `ApiConfigService`. Sao chép từ mẫu:
+### Cấu hình
 
 ```bash
 cp .env.example .env
+# Điền DATABASE_URL, MIGRATION_DATABASE_URL, RABBITMQ_URL, TRACKASIA_API_KEY, SERVICE_TOKEN
 ```
 
-### Bảng chi tiết các biến:
+### Chạy
 
-| Biến | Mặc định / Mẫu | Bắt buộc | Mô tả chi tiết |
-| :--- | :--- | :---: | :--- |
-| **Cấu hình ứng dụng** | | | |
-| `APP_NAME` | `MyApp` | Không | Tên hiển thị của ứng dụng trong Swagger/Logs |
-| `PORT` | `3001` | Không | Cổng HTTP server lắng nghe (mặc định 3001) |
-| `NODE_ENV` | `dev` / `production` | **Có** | Môi trường chạy (`dev`, `production`, `test`) |
-| `API_DOMAIN` | `localhost` | Không | Domain chạy API (dùng cho Swagger Docs) |
-| `API_VERSION` | `1.0.0` | Không | Phiên bản API hiện tại |
-| `ENABLE_DOCUMENTATION` | `true` | Không | Bật/Tắt Swagger UI tại `/swagger` |
-| `LOG_LEVEL` | `debug` / `info` | Không | Mức độ log (`debug`, `info`, `warn`, `error`) |
-| **Cơ sở dữ liệu (PostgreSQL / Supabase)** | | | |
-| `DATABASE_URL` | `postgresql://...` | **Có** | Chuỗi kết nối đầy đủ (khuyên dùng khi xài Supabase với connection pooler) |
-| `DB_HOST` | `localhost` | Tùy chọn | Host database (nếu không dùng `DATABASE_URL`) |
-| `DB_PORT` | `5432` | Tùy chọn | Port database |
-| `DB_USERNAME` | `postgres` | Tùy chọn | Tên người dùng database |
-| `DB_PASSWORD` | `postgres` | Tùy chọn | Mật khẩu database |
-| `DB_DATABASE` | `app_db` | Tùy chọn | Tên database |
-| `DB_SSL` | `true` / `false` | **Có** | Đặt `true` khi kết nối Supabase Cloud (bắt buộc SSL) |
-| `ENABLE_ORM_LOGS` | `false` | Không | Bật `true` nếu muốn in câu lệnh SQL ra terminal khi debug |
-| `MIGRATION_DATABASE_URL` | `postgresql://...` | Không | Connection string cho migration trực tiếp (Direct URL không qua pgbouncer) |
-| **RabbitMQ Message Broker** | | | |
-| `RABBITMQ_DEFAULT_USER` | `guest` | Không | Tài khoản đăng nhập RabbitMQ |
-| `RABBITMQ_DEFAULT_PASS` | `guest` | Không | Mật khẩu RabbitMQ |
-| `RABBITMQ_URL` | `amqp://...` | **Có** | Chuỗi kết nối RabbitMQ (`amqp://user:pass@localhost:5672` khi local, hoặc `amqp://...:5672@rabbitmq:5672` khi chạy Docker) |
-| **Transactional Outbox** | | | |
-| `RABBITMQ_EXCHANGE` | `MyApp.events` | Không | Durable topic exchange dùng cho integration events |
-| `RABBITMQ_PREFETCH` | `10` | Không | Prefetch của channel mặc định (consumer queue dùng prefetch 1 để giữ thứ tự) |
-| `RABBITMQ_CONSUMER_MAX_ATTEMPTS` | `5` | Không | Tổng số lần xử lý một message trước khi chuyển vào `<queue>.dlq` |
-| `RABBITMQ_CONSUMER_RETRY_DELAY_MS` | `10000` | Không | Thời gian message chờ trong `<queue>.retry` trước khi xử lý lại |
-| `OUTBOX_RELAY_ENABLED` | `true` | Không | Bật/tắt relay scheduler |
-| `OUTBOX_RELAY_INTERVAL_MS` | `1000` | Không | Chu kỳ poll outbox |
-| `OUTBOX_MAX_ATTEMPTS` | `10` | Không | Tổng số lần publish (tính cả lần đầu) trước khi chuyển `FAILED` |
-| `OUTBOX_RETENTION_MS` | `604800000` | Không | Thời gian giữ row `PUBLISHED` |
-| **Redis Cache (Tùy chọn)** | | | |
-| `REDIS_HOST` | `localhost` | Không | Host Redis server |
-| `REDIS_PORT` | `6379` | Không | Cổng Redis |
-| **SMTP Mailer (Tùy chọn)** | | | |
-| `MAIL_HOST` | `smtp.gmail.com` | Không | SMTP server gửi mail |
-| `MAIL_PORT` | `465` | Không | Cổng SMTP |
-| `MAIL_USER` | `your_email@...` | Không | Tài khoản gửi mail |
-| `MAIL_PASS` | `app_password` | Không | App password Google |
-| `MAIL_FROM` | `noreply@...` | Không | Tên hiển thị người gửi |
+```bash
+npm run migration:run    # tạo bảng outbox/inbox, buildings, rooms, contracts
+npm run start:dev        # watch mode
+```
 
----
+- API: `http://localhost:3002/api/v1/...`
+- Health: `GET http://localhost:3002/api/v1/tenancy/health`
+- Swagger: `http://localhost:3002/api/v1/tenancy/swagger` (khi `ENABLE_DOCUMENTATION=true`)
 
-## 🔄 Luồng xử lý CQRS (CQRS Architecture Flow)
+<details>
+<summary>Chạy bằng Docker</summary>
+
+```bash
+docker build -t tenancy-service:local .
+docker run -p 3002:3002 --env-file .env tenancy-service:local
+```
+
+Container chạy `start.sh`: `migration:run:prod` rồi `node dist/main.js`.
+
+</details>
+
+> [!IMPORTANT]
+> Mặc định cổng trong code và `ARG PORT` của Dockerfile là `3001` (kế thừa từ boilerplate). Luôn đặt `PORT=3002` trong `.env` để không xung đột với Identity-Service.
+
+## Biến môi trường
+
+Toàn bộ biến lấy từ [`.env.example`](.env.example) và được validate bởi `ApiConfigService`.
+
+| Biến | Bắt buộc | Mô tả |
+|---|:---:|---|
+| **Ứng dụng** | | |
+| `APP_NAME` | Không | Tên ứng dụng (`tenancy-service`) |
+| `PORT` | Có | Cổng HTTP — `3002` |
+| `NODE_ENV` | Có | `development` / `production` / `test` |
+| `API_DOMAIN`, `API_VERSION` | Không | Thông tin hiển thị trên Swagger (`localhost`, `1.0.0`) |
+| `ENABLE_DOCUMENTATION` | Không | Bật Swagger UI (`true`) |
+| `LOG_LEVEL` | Không | `debug` / `info` / `warn` / `error` |
+| **Xác thực** | | |
+| `JWKS_URL` | Có | JWKS của Identity-Service, vd. `http://localhost:3001/api/v1/.well-known/jwks.json` |
+| `JWT_ISSUER` | Có | Phải khớp Identity-Service (`rentify-identity`) |
+| `JWT_AUDIENCE` | Có | Phải khớp Identity-Service (`rentify-api`) |
+| `SERVICE_TOKEN` | Có (production) | Secret dùng chung cho route `internal/*` và header `X-Service-Token` khi gọi peer; để trống = tắt |
+| **Peer services** | | |
+| `IDENTITY_SERVICE_URL` | Có | URL nội bộ Identity-Service (`http://identity:3001`); trống = lời gọi trả `503` |
+| `INTERNAL_HTTP_TIMEOUT_MS` | Không | Timeout gọi peer (`3000`) |
+| **Geocoding** | | |
+| `TRACKASIA_API_KEY` | Có (để tạo building) | Key TrackAsia, chỉ nằm ở backend; trống = tạo building trả `503` |
+| `TRACKASIA_BASE_URL` | Không | `https://maps.track-asia.com` |
+| `TRACKASIA_TIMEOUT_MS` | Không | `3000` |
+| **Cơ sở dữ liệu** | | |
+| `DATABASE_URL` | Có | Connection string PostgreSQL (Supabase pooler) |
+| `MIGRATION_DATABASE_URL` | Không | Direct URL (không qua pgbouncer) dùng cho migration |
+| **RabbitMQ** | | |
+| `RABBITMQ_URL` | Có | `amqp://user:password@localhost:5672` |
+| `RABBITMQ_DEFAULT_USER`, `RABBITMQ_DEFAULT_PASS` | Không | Tài khoản broker |
+| `RABBITMQ_EXCHANGE` / `RABBITMQ_EXCHANGE_TYPE` | Không | `pbl6.events` / `topic` |
+| `RABBITMQ_PREFETCH` | Không | `10` (consumer queue dùng prefetch 1 để giữ thứ tự) |
+| `RABBITMQ_CONNECT_TIMEOUT_MS` | Không | `10000` |
+| `RABBITMQ_PUBLISH_MANDATORY` | Không | `true` |
+| `RABBITMQ_CONSUMER_MAX_ATTEMPTS` | Không | Số lần xử lý trước khi chuyển vào `<queue>.dlq` (`5`) |
+| `RABBITMQ_CONSUMER_RETRY_DELAY_MS` | Không | Thời gian chờ ở `<queue>.retry` (`10000`) |
+| **Transactional Outbox** | | |
+| `OUTBOX_RELAY_ENABLED` | Không | Bật/tắt relay (`true`) |
+| `OUTBOX_RELAY_INTERVAL_MS` / `OUTBOX_RELAY_BATCH_SIZE` | Không | Chu kỳ poll / số message mỗi lượt (`1000` / `100`) |
+| `OUTBOX_PUBLISH_TIMEOUT_MS` / `OUTBOX_CLAIM_TIMEOUT_MS` | Không | `5000` / `60000` |
+| `OUTBOX_MAX_ATTEMPTS` | Không | Số lần publish trước khi chuyển `FAILED` (`10`) |
+| `OUTBOX_RETRY_BASE_DELAY_MS` / `OUTBOX_RETRY_MAX_DELAY_MS` | Không | Backoff (`1000` / `60000`) |
+| `OUTBOX_RETENTION_MS` | Không | Thời gian giữ row `PUBLISHED` (`604800000` = 7 ngày) |
+
+> [!WARNING]
+> Không commit file `.env`. Các secret (`DATABASE_URL`, `SERVICE_TOKEN`, `TRACKASIA_API_KEY`) chỉ đặt ở `.env` local hoặc trên host deploy.
+
+## Scripts
+
+| Lệnh | Mô tả |
+|---|---|
+| `npm run start:dev` | Chạy dev (watch mode) |
+| `npm run start:debug` | Dev + debugger |
+| `npm run build` / `npm run start:prod` | Build ra `dist/` / chạy bản build |
+| `npm run lint` / `npm run lint:fix` | oxlint trên `src/` |
+| `npm run format` / `npm run format:check` | Prettier |
+| `npm run migration:generate -- src/database/migrations/<Name>` | Sinh migration từ thay đổi entity |
+| `npm run migration:create -- src/database/migrations/<Name>` | Tạo migration rỗng |
+| `npm run migration:run` / `npm run migration:revert` | Áp dụng / hoàn tác migration |
+| `npm run migration:run:prod` | Chạy migration từ `dist/` (dùng trong container) |
+| `npm run seed:run` | Chạy seeder (`typeorm-extension`) |
+| `npm run outbox:requeue -- <message-id>` | Đưa message outbox `FAILED` về hàng đợi publish |
+| `npm run administrative-map:generate` | Tải lại snapshot tỉnh/phường từ `provinces.open-api.vn` (API v2) |
+
+> [!NOTE]
+> Service chưa có test script; kiểm tra bằng `npm run build`, `npm run lint` và lệnh kiểm tra dependency rule trong [`docs/architecture.md`](docs/architecture.md) §7.
+
+## Cấu trúc thư mục
+
+```text
+Tenancy-Service/
+├── .github/workflows/
+│   ├── deploy.yml                 # Build image linux/amd64 → Docker Hub → deploy EC2 (internal stack)
+│   └── db-keepalive.yml           # Cron giữ Supabase không ngủ
+├── docs/                          # Kiến trúc & thiết kế outbox (kế thừa boilerplate)
+├── scripts/
+│   ├── generate-administrative-map.mjs  # Sinh snapshot đơn vị hành chính
+│   └── keep-alive.ts                    # Dùng bởi db-keepalive.yml
+├── src/
+│   ├── main.ts                    # Bootstrap: prefix api/v1 (trừ internal/*), Swagger, validation
+│   ├── app.module.ts
+│   ├── config/service.constants.ts  # PATH=tenancy, TITLE, DEFAULT_DATABASE_NAME=tenancy_db
+│   ├── database/migrations/       # Outbox/inbox, buildings, rooms, contracts
+│   ├── shared/                    # Shared kernel — đồng bộ từ boilerplate, KHÔNG sửa tại đây
+│   └── modules/
+│       ├── administrative-unit/   # Danh mục tỉnh/phường (JSON snapshot, catalog cục bộ)
+│       ├── building/              # Aggregate Building, geocoding TrackAsia, duyệt admin
+│       ├── room/                  # Aggregate Room, tìm kiếm công khai, phòng của chủ trọ
+│       ├── contract/              # Aggregate Contract (domain + persistence)
+│       ├── outbox/                # Transactional outbox + relay + CLI requeue
+│       ├── inbox/                 # Dedup phía consumer (processed_events)
+│       └── health/                # GET /api/v1/tenancy/health
+├── Dockerfile                     # Multi-stage build
+├── start.sh                       # Entrypoint: migrate rồi start
+└── .env.example
+```
+
+Mỗi module nghiệp vụ theo layout `domain/` → `application/` (`commands/<noun>-<verb>/`, `queries/<noun>-<verb>/`) ← `infrastructure/` + `presentation/http/`, port được bind bằng Symbol DI token trong `<module>.di-token.ts`.
+
+## Kiến trúc
+
+### Tổng quan
 
 ```mermaid
-sequenceDiagram
-    autonumber
-    actor Client
-    participant Controller as SampleController (Presentation)
-    participant CommandBus as CommandBus (CQRS)
-    participant Handler as SampleCreateCommandHandler
-    participant Domain as SampleEntity (Domain)
-    participant Repo as SampleRepository (Infra)
-    participant DB as PostgreSQL Database
-
-    Client->>Controller: POST /api/v1/samples (CreateSampleRequest)
-    Controller->>CommandBus: execute(new SampleCreateCommand(...))
-    CommandBus->>Handler: execute(command)
-    Handler->>Domain: SampleEntity.create(props)
-    Handler->>Repo: save(sample)
-    Repo->>DB: INSERT INTO samples
-    Handler-->>Controller: Return Domain SampleEntity
-    Controller-->>Client: 201 Created (SampleResponseDto)
+flowchart LR
+    client["Web / Mobile"] --> gw["api-gateway :3000"]
+    gw -->|"/buildings, /rooms, /me/*, /admin/buildings, /administrative-units"| ten["Tenancy Service :3002"]
+    ten -->|"JWKS (cache)"| idp["Identity-Service :3001"]
+    ten -->|"GET internal/users (X-Service-Token)"| idp
+    ten -->|"geocode địa chỉ"| ta["TrackAsia API"]
+    ten --> db[("PostgreSQL tenancy_db")]
+    db -->|"outbox relay"| mq{{"RabbitMQ pbl6.events"}}
 ```
 
----
+Dependency một chiều: `presentation`/`infrastructure` → `application` → `domain`; domain không import NestJS/TypeORM. Chi tiết: [`docs/architecture.md`](docs/architecture.md).
 
-## 🛠️ Hướng dẫn cài đặt & Khởi chạy
+### Mô hình domain
 
-### 1. Khởi chạy trực tiếp (Local Development)
-
-#### Bước 1: Cài đặt dependencies:
-```bash
-npm install
+```mermaid
+erDiagram
+    BUILDING ||--o{ ROOM : "chứa"
+    ROOM ||--o{ CONTRACT : "cho thuê theo"
+    BUILDING {
+        uuid id
+        uuid landlordId
+        string name
+        string province
+        string ward
+        string address
+        float latitude
+        float longitude
+        enum status "pending | approved | rejected"
+        string note
+    }
+    ROOM {
+        uuid id
+        uuid buildingId
+        uuid landlordId
+        string name
+        int floorNumber
+        float area
+        int rentPrice
+        int depositAmount
+        int maxOccupancy
+        enum genderPolicy "any | male | female"
+        enum status "available | occupied | maintenance"
+    }
+    CONTRACT {
+        uuid id
+        uuid roomId
+        uuid landlordId
+        uuid tenantId
+        date startDate
+        date endDate
+        enum status "draft | signed | active | suspended | expired | terminated"
+    }
 ```
 
-#### Bước 2: Cấu hình biến môi trường:
-```bash
-cp .env.example .env
-# Chỉnh sửa DATABASE_URL Supabase và RABBITMQ_URL trong .env
-```
+Building, Room, Contract đều xóa mềm (`isDeleted`). Đơn vị hành chính (tỉnh/phường) là dữ liệu tham chiếu chỉ đọc, không lưu trong database.
 
-#### Bước 3: Chạy Database Migrations:
-```bash
-npm run migration:run
-```
+### Sự kiện và lời gọi nội bộ
 
-Migration Room chưa được tạo thủ công: khi Building entity và quan hệ Room–Building đã có trong TypeORM metadata, generate migration bằng `npm run migration:generate -- src/database/migrations/CreateRooms`, review file được sinh rồi mới chạy migration.
+| Hướng | Chi tiết |
+|---|---|
+| Publish (outbox → RabbitMQ) | `building.created`, `building.updated`, `building.approved`, `building.rejected`, `building.deleted` |
+| | `room.created`, `room.updated`, `room.deleted`, `room.status_changed` |
+| | `contract.created`, `contract.updated`, `contract.activated` (domain đã định nghĩa, chưa có use case HTTP) |
+| Consume | Chưa có subscriber; module `inbox` sẵn sàng cho consumer tương lai |
+| Internal HTTP (GET) | `Identity-Service` `GET /internal/users?ids=...` — lấy tên/SĐT/email chủ trọ cho màn hình admin; Identity không phản hồi thì trả dữ liệu thiếu thông tin liên hệ thay vì lỗi |
+| External HTTP | TrackAsia `GET /api/v1/search` khi tạo/sửa địa chỉ building |
 
-#### Bước 4: Khởi chạy ứng dụng:
-```bash
-npm run start:dev
-```
-Truy cập Swagger API Docs tại: `http://localhost:3001/swagger`
+Outbox đảm bảo at-least-once; thứ tự chỉ cam kết trong cùng aggregate. Xem [`docs/transactional-outbox-design.md`](docs/transactional-outbox-design.md).
 
----
+### Xác thực
 
-### 2. Khởi chạy bằng Docker (Local Container)
+Guard toàn cục theo thứ tự `ServiceTokenGuard` → `JwtAuthGuard` → `RolesGuard` → `ActiveUserGuard`; mọi route cần token trừ khi có `@Public()`. Service tự verify JWT, **không** tin header `x-user-*`. Quyền sở hữu (landlord chỉ thao tác building/room của mình) được kiểm tra trong use case. Service không bật CORS — gateway đảm nhiệm.
 
-```bash
-# Build Docker image
-docker build -t rentify-backend:local .
+## API / Tài liệu
 
-# Chạy container
-docker run -p 3001:3001 --env-file .env rentify-backend:local
-```
+Mọi đường dẫn dưới prefix `/api/v1`.
 
----
+| Method | Path | Quyền | Mục đích |
+|---|---|---|---|
+| `GET` | `/tenancy/health` | Public | Health check |
+| `GET` | `/administrative-units/provinces` | Public | Danh sách tỉnh/thành |
+| `GET` | `/administrative-units/provinces/:provinceCode/wards` | Public | Danh sách phường của một tỉnh |
+| `GET` | `/buildings` | Public | Tìm tòa nhà đã duyệt (`province`, `ward`, `q`, phân trang) |
+| `GET` | `/buildings/:buildingId` | Public | Chi tiết tòa nhà công khai |
+| `POST` | `/buildings` | `LANDLORD` | Tạo tòa nhà (geocode, trạng thái `pending`) |
+| `PATCH` | `/buildings/:buildingId` | `LANDLORD` | Cập nhật tòa nhà chưa duyệt |
+| `DELETE` | `/buildings/:buildingId` | `LANDLORD` | Xóa mềm tòa nhà |
+| `POST` | `/buildings/:buildingId/approve` | `ADMIN` | Duyệt tòa nhà |
+| `POST` | `/buildings/:buildingId/reject` | `ADMIN` | Từ chối tòa nhà (kèm ghi chú) |
+| `GET` | `/me/buildings` | `LANDLORD` | Danh sách tòa nhà của tôi |
+| `GET` | `/me/buildings/:buildingId` | `LANDLORD` | Chi tiết tòa nhà của tôi |
+| `GET` | `/admin/buildings` | `ADMIN` | Danh sách tòa nhà để duyệt (kèm thông tin chủ trọ) |
+| `GET` | `/admin/buildings/:buildingId` | `ADMIN` | Chi tiết tòa nhà cho admin |
+| `GET` | `/rooms` | Public | Tìm phòng (`province`, `ward`, `minPrice`, `maxPrice`, `genderPolicy`, phân trang) |
+| `GET` | `/rooms/:roomId` | Public | Chi tiết phòng |
+| `POST` | `/rooms` | `LANDLORD` | Tạo phòng trong tòa nhà đã duyệt |
+| `PATCH` | `/rooms/:roomId` | `LANDLORD` | Cập nhật phòng |
+| `DELETE` | `/rooms/:roomId` | `LANDLORD` | Xóa mềm phòng |
+| `POST` | `/rooms/:roomId/mark-ready` | `LANDLORD` | Chuyển phòng `maintenance → available` |
+| `GET` | `/me/rooms` | `LANDLORD` | Danh sách phòng của tôi |
 
-## 📋 Hướng dẫn thêm Module mới chuẩn Clean Architecture & CQRS
+- **Swagger** (chạy local): `http://localhost:3002/api/v1/tenancy/swagger`
+- **Hợp đồng OpenAPI chuẩn**: repo [`be`](https://github.com/pbl6-home-renter/be) (`src/paths/buildings`, `rooms`, `administrative-units`, …). Mọi thay đổi API phải cập nhật spec ở đó và bundle lại.
+- **Tài liệu nội bộ**: [`docs/architecture.md`](docs/architecture.md) (tầng, layout module, quy ước `<noun>-<verb>`, đồng bộ `shared/`, kiểm tra dependency rule) · [`docs/transactional-outbox-design.md`](docs/transactional-outbox-design.md) (outbox, relay, RabbitMQ topology, inbox).
+- **Định tuyến gateway**: thêm route mới theo [`api-gateway/docs/02-routing.md`](https://github.com/pbl6-home-renter/api-gateway/blob/main/docs/02-routing.md).
 
-Xem [`docs/architecture.md`](docs/architecture.md) mục 4–5: layout module, quy ước đặt tên
-use case `<noun>-<verb>` (vd. `commands/product-create/` → `ProductCreateCommand`) và các
-bước tạo domain, repository, use case, controller, module. Module `sample` là ví dụ đầy đủ.
+> [!NOTE]
+> Endpoint nội bộ (service-to-service) đặt dưới `internal/...`, nằm ngoài prefix `api/v1` nên gateway không route tới; xác thực bằng `@InternalOnly()` + `X-Service-Token`.
 
----
+## Triển khai
 
-## 📜 Các lệnh Scripts hữu ích (NPM Scripts)
+- **CI/CD** — [`deploy.yml`](.github/workflows/deploy.yml) chạy khi push `main` (hoặc `workflow_dispatch`): build image `linux/amd64`, push `<DOCKERHUB_USERNAME>/tenancy-service:latest`, rồi SSH vào EC2 và chạy `DEPLOY_STACK=internal bash ./scripts/deploy.sh tenancy` trong repo [`infra`](https://github.com/pbl6-home-renter/infra). Bước deploy tự bỏ qua nếu thiếu secret `EC2_HOST`/`EC2_SSH_KEY`.
+- **Host** — service chạy trên host **internal** (cùng Identity-Service), chỉ truy cập qua gateway ở host edge; cổng `3002` không được public.
+- **Migration** — `start.sh` tự chạy `migration:run:prod` khi container khởi động.
+- **Keepalive** — [`db-keepalive.yml`](.github/workflows/db-keepalive.yml) chạy hằng ngày (cron `17 3 * * *`) với secret `SUPABASE_DATABASE_URL`; có thể chạy tay với `dry_run`.
 
-| Lệnh                                               | Ý nghĩa                                            |
-| :------------------------------------------------- | :------------------------------------------------- |
-| `npm run start:dev`                                | Chạy ứng dụng ở chế độ dev (watch mode)            |
-| `npm run build`                                    | Biên dịch TypeScript sang JavaScript trong `dist/` |
-| `npm run lint`                                     | Kiểm tra và sửa lỗi coding convention với ESLint   |
-| `npm run format`                                   | Tự động format code với Prettier                   |
-| `npm run migration:create -- name=MigrationName`   | Tạo một file migration mới                         |
-| `npm run migration:generate -- name=MigrationName` | Tự động sinh migration từ Entity thay đổi          |
-| `npm run migration:run`                            | Áp dụng các migration chưa chạy vào Database       |
-| `npm run migration:revert`                         | Hoàn tác migration gần nhất                        |
+## Đóng góp
 
----
+1. Tạo nhánh từ `develop`: `feature/<id>-<slug>` (hoặc `fix/`, `hotfix/`, `docs/`, `ci/`), với task ID theo `pm/phase-N/issues/`, vd. `feature/p6-08-room-search`.
+2. Commit message tiếng Anh theo **Conventional Commits** (`feat(room): ...`, `fix(building): ...`, `ci(deploy): ...`). Husky + lint-staged tự chạy `oxlint --fix` và `prettier` trên file staged.
+3. Trước khi mở PR: `npm run build`, `npm run lint`, `npm run format:check`; thay đổi API thì cập nhật spec trong [`be`](https://github.com/pbl6-home-renter/be).
+4. Mở PR vào `develop`, cần ≥ 1 reviewer, merge kiểu **squash**. Luồng nhánh: `main` ← `develop` ← `feature/*`.
 
-## 🧭 Kiến trúc DDD & Clean Architecture
+> [!IMPORTANT]
+> Không push trực tiếp lên `main` hoặc `develop`. Không sửa `src/shared/` trong repo này — thay đổi ở `boilerplate` rồi đồng bộ sang (xem [`docs/architecture.md`](docs/architecture.md) §6).
 
-Cả `shared/` lẫn từng module đều chia 4 tầng với dependency một chiều:
+## Hệ sinh thái Rentify
 
-```text
-presentation ──┐
-               ├──► application ──► domain
-infrastructure ┘
-```
+| Repo | Vai trò |
+|---|---|
+| [`api-gateway`](https://github.com/pbl6-home-renter/api-gateway) | Reverse proxy: định tuyến theo prefix, xác thực JWT/JWKS, rate limit |
+| [`Identity-Service`](https://github.com/pbl6-home-renter/Identity-Service) | Xác thực, người dùng, hồ sơ chủ trọ; phát hành JWT RS256 |
+| [**`Tenancy-Service`**](https://github.com/pbl6-home-renter/Tenancy-Service) | Tòa nhà, phòng, đơn vị hành chính |
+| [`boilerplate`](https://github.com/pbl6-home-renter/boilerplate) | Template NestJS mà mọi backend service được fork từ |
+| [`be`](https://github.com/pbl6-home-renter/be) | Hợp đồng OpenAPI 3.0 chuẩn (canonical) |
+| [`fe`](https://github.com/pbl6-home-renter/fe) | Web cho chủ trọ (React + Vite) |
+| [`mobile`](https://github.com/pbl6-home-renter/mobile) | Ứng dụng Android cho người thuê & chủ trọ |
+| [`infra`](https://github.com/pbl6-home-renter/infra) | Docker Compose + Caddy cho hai host EC2 |
 
-- `domain/`: Entity, Aggregate Root, Value Object, domain event và repository interface.
-- `application/`: command/query handler, port cho hạ tầng.
-- `infrastructure/`: TypeORM entity, mapper, repository adapter, RabbitMQ adapter và scheduler.
-- `presentation/`: HTTP controller, request/response DTO và broker subscriber.
+## Giấy phép
 
-Domain không import NestJS, TypeORM hay RabbitMQ. Infrastructure implement port bằng
-DI token. `BaseEntity` chỉ chứa identity/lifecycle; aggregate có behavior và là nơi
-phát domain event. Entity đọc từ database phải được reconstitute để không phát lại event.
-
-Chi tiết (cấu trúc `shared/`, quy ước import, cách đồng bộ `shared/` sang service khác,
-lệnh kiểm tra dependency rule): [`docs/architecture.md`](docs/architecture.md).
-
-Command thay đổi state và có thể phát domain event. Query chỉ đọc. Domain event mô tả
-sự kiện trong bounded context; integration event là contract gửi qua message broker.
-
-## 📬 Transactional Outbox và microservice events
-
-Khi một command cần vừa ghi database vừa publish event, không publish trực tiếp trong
-handler vì sẽ gặp dual-write problem. Boilerplate ghi aggregate và `outbox_messages`
-trong cùng local transaction, sau đó relay publish message đã commit:
-
-```text
-HTTP Request
-  → Controller
-  → Command Handler
-  → Aggregate
-  → Repository + Outbox
-  → Database Transaction
-  → Outbox Relay
-  → RabbitMQ topic exchange
-  → Consumer queue + Inbox
-```
-
-Delivery là at-least-once, không phải exactly-once. Consumer dùng `messageId` và bảng
-`processed_events` để bỏ qua duplicate. RabbitMQ dùng durable topic exchange, queue
-riêng cho từng loại aggregate, kèm retry queue (TTL) và DLQ. Ordering chỉ được cam kết
-trong cùng aggregate; các aggregate khác có thể xử lý độc lập. Message outbox `FAILED`
-được gỡ bằng `npm run outbox:requeue -- <message-id>`.
-
-Transaction context được truyền explicit qua `IUnitOfWork`, không dùng
-`AsyncLocalStorage`. RabbitMQ adapter dùng `@golevelup/nestjs-rabbitmq` và publisher
-confirm; `@nestjs/microservices`/`ClientProxy` không còn được sử dụng.
-
-Tài liệu học tập đầy đủ: [`docs/transactional-outbox-design.md`](docs/transactional-outbox-design.md).
-
-### Transactional Outbox quick start
-
-```bash
-npm install
-cp .env.example .env
-npm run migration:run
-npm run start:dev
-```
-
-Các biến chính gồm `RABBITMQ_EXCHANGE`, `RABBITMQ_PREFETCH`, `OUTBOX_RELAY_INTERVAL_MS`,
-`OUTBOX_MAX_ATTEMPTS` và `OUTBOX_RETENTION_MS`. Có thể tắt relay bằng
-`OUTBOX_RELAY_ENABLED=false`.
-
-## 🔐 Xác thực (Authentication)
-
-Mỗi service **tự verify access token** (RS256) do Identity-Service phát hành, kể cả khi request đã qua API Gateway. Không dùng header `x-user-*` để phân quyền: trong private network, ai gọi thẳng service cũng có thể tự gắn header đó, còn chữ ký JWT thì không giả được. Verify chạy cục bộ với JWKS đã cache (5 phút), không thêm network hop.
-
-`SecurityModule` ([src/shared/security.module.ts](src/shared/security.module.ts)) đăng ký các guard toàn cục theo thứ tự:
-
-| Guard | Việc làm | Lỗi |
-|---|---|---|
-| `ServiceTokenGuard` | Route `@InternalOnly()`: kiểm `X-Service-Token` = `SERVICE_TOKEN` | `401 UNAUTHORIZED` |
-| `JwtAuthGuard` | Mọi route **mặc định cần token**; gắn `request.user = { id, role, status }` | `401 UNAUTHORIZED`, `503 AUTH_UNAVAILABLE` (không tải được JWKS) |
-| `RolesGuard` | Kiểm `@Roles(...)` | `403 FORBIDDEN` |
-| `ActiveUserGuard` | Chặn user `status=locked`, trừ khi `@AllowLocked(...)` cho phép role đó | `403 ACCOUNT_LOCKED` |
-
-Mọi guard đều phải pass; thứ tự chỉ quyết định lỗi nào được trả khi nhiều guard cùng fail.
-
-Decorator ([src/shared/presentation/decorators/auth/](src/shared/presentation/decorators/auth/)):
-
-```ts
-@Public()                         // không cần token (có token hợp lệ vẫn gắn request.user)
-@Roles(UserRole.LANDLORD)         // giới hạn role
-@AllowLocked()                    // cho phép mọi role bị khóa (vd. GET /me)
-@AllowLocked(UserRole.TENANT)     // chỉ tenant bị khóa được gọi (vd. xem/thanh toán hoá đơn)
-@InternalOnly()                   // service-to-service, xác thực bằng X-Service-Token
-@CurrentUser() user: AuthenticatedUser
-```
-
-Quy ước đường dẫn khi fork:
-
-- Đổi `ServiceConstants.PATH` (và `TITLE`, `DESCRIPTION`, `DEFAULT_DATABASE_NAME`) trong [src/config/service.constants.ts](src/config/service.constants.ts) (vd. `tenancy`). Không sửa `src/shared/`. Health: `GET /api/v1/<PATH>/health`, Swagger: `/api/v1/<PATH>/swagger`.
-- Endpoint nội bộ đặt dưới `internal/...` (nằm **ngoài** prefix `api/v1`, gateway không route tới).
-- Ownership dữ liệu (vd. landlord chỉ sửa building của mình) kiểm tra trong use-case, không phải guard.
-- Service không bật CORS; API Gateway lo phần này.
-
-Biến môi trường: `JWKS_URL` (hoặc `JWT_PUBLIC_KEY`), `JWT_ISSUER`, `JWT_AUDIENCE` phải khớp Identity-Service; `SERVICE_TOKEN` dùng chung giữa các service.
-
----
-
-## Building domain and persistence
-
-P5-08a provides the Building aggregate and PostgreSQL persistence. See
-[`docs/building-domain-persistence.md`](docs/building-domain-persistence.md)
-for behavior, UoW/outbox usage, and verification commands and results.
-
-## Building landlord management
-
-P5-08c adds landlord Building list/detail queries, updates with geocoding, and
-soft-delete through UoW/outbox.
-
-## 🛡️ License
-
-Dự án phát hành theo giấy phép MIT.
+Dự án học thuật thuộc học phần PBL6 — Trường Đại học Bách khoa, Đại học Đà Nẵng. Chưa phát hành theo giấy phép mã nguồn mở.
