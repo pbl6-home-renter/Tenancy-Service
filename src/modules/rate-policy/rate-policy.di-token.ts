@@ -1,0 +1,4 @@
+export const RATE_POLICY_DI_TOKEN = {
+  REPOSITORY: Symbol('RATE_POLICY_REPOSITORY'),
+  PAGE_QUERY: Symbol('RATE_POLICY_PAGE_QUERY'),
+} as const;
