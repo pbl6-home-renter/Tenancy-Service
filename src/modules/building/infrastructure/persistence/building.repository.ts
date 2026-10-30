@@ -12,7 +12,9 @@ import {
   AdminBuildingFilter,
   BuildingRepository,
   MyBuildingFilter,
+  PublicBuildingFilter,
 } from '../../domain/repositories/building.repository';
+import { BuildingStatus } from '../../domain/enums/building-status.enum';
 import { BuildingTypeormEntity } from './building.typeorm-entity';
 import { BuildingMapper } from './mappers/building.mapper';
 
@@ -38,6 +40,47 @@ export class TypeOrmBuildingRepository implements BuildingRepository {
   ): Promise<BuildingEntity | null> {
     const raw = await withTransaction(this.repository, context).findOne({
       where: { id, isDeleted: false },
+    });
+    return raw ? BuildingMapper.toDomain(raw) : null;
+  }
+
+  async findPublicBuildings(
+    query: OffsetPageQuery<PublicBuildingFilter>,
+  ): Promise<PaginatedResult<BuildingEntity>> {
+    const qb = this.repository
+      .createQueryBuilder('building')
+      .where('building.isDeleted = :isDeleted', { isDeleted: false })
+      .andWhere('building.status = :status', {
+        status: BuildingStatus.APPROVED,
+      });
+    const filter = query.filter;
+    if (filter?.province) {
+      qb.andWhere('building.province = :province', {
+        province: filter.province,
+      });
+    }
+    if (filter?.ward) {
+      qb.andWhere('building.ward = :ward', { ward: filter.ward });
+    }
+    if (filter?.q) {
+      qb.andWhere(
+        '(LOWER(building.name) LIKE :q OR LOWER(building.address) LIKE :q)',
+        { q: `%${filter.q.toLowerCase()}%` },
+      );
+    }
+    return TypeOrmPaginator.offset(qb, query)
+      .withSort({
+        whitelist: ['createdAt', 'name'],
+        defaultSort: 'createdAt',
+        defaultOrder: 'desc',
+        alias: 'building',
+      })
+      .paginate(BuildingMapper.toDomain);
+  }
+
+  async findPublicBuildingById(id: Uuid): Promise<BuildingEntity | null> {
+    const raw = await this.repository.findOne({
+      where: { id, isDeleted: false, status: BuildingStatus.APPROVED },
     });
     return raw ? BuildingMapper.toDomain(raw) : null;
   }

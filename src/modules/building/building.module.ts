@@ -21,6 +21,8 @@ import { BuildingListForAdminQueryHandler } from './application/queries/building
 import { BuildingGetAdminQueryHandler } from './application/queries/building-get-admin/building-get-admin.query.handler';
 import { AdminBuildingController } from './presentation/http/controllers/admin-building.controller';
 import { InternalUserService } from './infrastructure/services/internal-user.service';
+import { BuildingSearchPublicQueryHandler } from './application/queries/building-search-public/building-search-public.query.handler';
+import { BuildingGetPublicQueryHandler } from './application/queries/building-get-public/building-get-public.query.handler';
 
 const commandHandlers = [
   BuildingApproveCommandHandler,
@@ -30,6 +32,8 @@ const commandHandlers = [
   BuildingDeleteCommandHandler,
 ];
 const queryHandlers = [
+  BuildingSearchPublicQueryHandler,
+  BuildingGetPublicQueryHandler,
   BuildingListForAdminQueryHandler,
   BuildingGetAdminQueryHandler,
   BuildingListMineQueryHandler,
