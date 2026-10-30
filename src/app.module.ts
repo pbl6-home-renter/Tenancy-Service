@@ -8,6 +8,7 @@ import { HealthModule } from 'modules/health/health.module';
 import { OutboxModule } from 'modules/outbox/outbox.module';
 import { BuildingModule } from 'modules/building/building.module';
 import { RoomModule } from 'modules/room/room.module';
+import { ContractModule } from 'modules/contract/contract.module';
 import { AdministrativeUnitModule } from 'modules/administrative-unit/administrative-unit.module';
 
 @Module({
@@ -15,6 +16,7 @@ import { AdministrativeUnitModule } from 'modules/administrative-unit/administra
     SharedModule,
     SecurityModule,
     RoomModule,
+    ContractModule,
     OutboxModule,
     HealthModule,
     BuildingModule,
