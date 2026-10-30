@@ -9,6 +9,7 @@ import { OutboxModule } from 'modules/outbox/outbox.module';
 import { BuildingModule } from 'modules/building/building.module';
 import { RoomModule } from 'modules/room/room.module';
 import { ContractModule } from 'modules/contract/contract.module';
+import { RatePolicyModule } from 'modules/rate-policy/rate-policy.module';
 import { AdministrativeUnitModule } from 'modules/administrative-unit/administrative-unit.module';
 
 @Module({
@@ -17,6 +18,7 @@ import { AdministrativeUnitModule } from 'modules/administrative-unit/administra
     SecurityModule,
     RoomModule,
     ContractModule,
+    RatePolicyModule,
     OutboxModule,
     HealthModule,
     BuildingModule,
