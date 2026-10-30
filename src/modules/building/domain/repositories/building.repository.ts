@@ -10,6 +10,12 @@ export type MyBuildingFilter = {
   status?: BuildingStatus;
 };
 
+export type PublicBuildingFilter = {
+  province?: string;
+  ward?: string;
+  q?: string;
+};
+
 export type AdminBuildingFilter = {
   status?: BuildingStatus;
   landlordId?: Uuid;
@@ -19,6 +25,10 @@ export type AdminBuildingFilter = {
 };
 
 export interface BuildingRepository extends BaseRepository<BuildingEntity> {
+  findPublicBuildings(
+    query: OffsetPageQuery<PublicBuildingFilter>,
+  ): Promise<PaginatedResult<BuildingEntity>>;
+  findPublicBuildingById(id: Uuid): Promise<BuildingEntity | null>;
   findPaginatedForAdmin(
     query: OffsetPageQuery<AdminBuildingFilter>,
   ): Promise<PaginatedResult<BuildingEntity>>;
