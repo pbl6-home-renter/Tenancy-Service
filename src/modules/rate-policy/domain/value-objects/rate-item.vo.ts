@@ -4,6 +4,7 @@ import { RateKind } from '../enums/rate-kind.enum';
 import { RateType } from '../enums/rate-type.enum';
 import { InvalidRateKindException } from '../exceptions/invalid-rate-kind.exception';
 import { TierConfigInvalidException } from '../exceptions/tier-config-invalid.exception';
+import { RatePrice } from './rate-price.vo';
 
 export interface RateStep {
   from: number;
@@ -20,7 +21,10 @@ export interface RateItemProps {
   billingUnit: BillingUnit;
 }
 
-const DECIMAL = /^(0|[1-9]\d*)(\.\d{1,2})?$/;
+type StoredRateItemProps = Omit<RateItemProps, 'unitPrice' | 'steps'> & {
+  unitPrice: RatePrice | null;
+  steps: { from: number; to: number | null; price: RatePrice }[] | null;
+};
 const FEE_KINDS = [
   RateKind.FIXED_PER_PERIOD,
   RateKind.PER_HEAD,
@@ -29,7 +33,7 @@ const FEE_KINDS = [
 ];
 
 export class RateItem {
-  private constructor(private readonly props: RateItemProps) {}
+  private constructor(private readonly props: StoredRateItemProps) {}
 
   static create(input: RateItemProps): RateItem {
     if (!Object.values(RateType).includes(input.type)) {
@@ -92,13 +96,13 @@ export class RateItem {
           (step.to !== null &&
             (!Number.isSafeInteger(step.to) || step.to < step.from)) ||
           (step.to === null) !== (index === input.steps!.length - 1) ||
-          !RateItem.isPrice(step.price)
+          !RatePrice.isValid(step.price)
         ) {
           throw new TierConfigInvalidException();
         }
         previousTo = step.to;
       });
-    } else if (!RateItem.isPrice(input.unitPrice) || input.steps != null) {
+    } else if (!RatePrice.isValid(input.unitPrice) || input.steps != null) {
       throw new ValidationException(
         'Non-tiered rate requires unitPrice and no steps',
       );
@@ -109,8 +113,14 @@ export class RateItem {
       type: input.type,
       name,
       rateKind: input.rateKind,
-      unitPrice: input.unitPrice ?? null,
-      steps: input.steps?.map((step) => ({ ...step })) ?? null,
+      unitPrice:
+        input.unitPrice === null ? null : RatePrice.create(input.unitPrice),
+      steps:
+        input.steps?.map((step) => ({
+          from: step.from,
+          to: step.to,
+          price: RatePrice.create(step.price),
+        })) ?? null,
       billingUnit: input.billingUnit,
     });
   }
@@ -126,11 +136,13 @@ export class RateItem {
   toProps(): RateItemProps {
     return {
       ...this.props,
-      steps: this.props.steps?.map((step) => ({ ...step })) ?? null,
+      unitPrice: this.props.unitPrice?.value ?? null,
+      steps:
+        this.props.steps?.map((step) => ({
+          from: step.from,
+          to: step.to,
+          price: step.price.value,
+        })) ?? null,
     };
-  }
-
-  private static isPrice(value: unknown): value is string {
-    return typeof value === 'string' && DECIMAL.test(value);
   }
 }

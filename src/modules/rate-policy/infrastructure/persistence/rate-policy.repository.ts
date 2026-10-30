@@ -90,7 +90,8 @@ export class TypeOrmRatePolicyRepository
   ): Promise<PaginatedResult<RatePolicyEntity>> {
     const qb = this.repository
       .createQueryBuilder('policy')
-      .where('policy.landlordId = :landlordId', { landlordId });
+      .where('policy.landlordId = :landlordId', { landlordId })
+      .andWhere('policy.isDeleted = false');
     if (query.filter?.scope) {
       qb.andWhere('policy.scope = :scope', { scope: query.filter.scope });
     }
@@ -102,9 +103,19 @@ export class TypeOrmRatePolicyRepository
         buildingId: query.filter.buildingId,
       });
     }
-    return TypeOrmPaginator.offset(qb, query)
+    if (query.filter?.type) {
+      qb.andWhere('policy.rates @> CAST(:rateType AS jsonb)', {
+        rateType: JSON.stringify([{ type: query.filter.type }]),
+      });
+    }
+    return TypeOrmPaginator.offset(qb, {
+      pageNo: query.pageNo,
+      pageSize: query.pageSize,
+      sort: query.sort,
+      order: query.order,
+    })
       .withSort({
-        whitelist: ['createdAt', 'updatedAt'],
+        whitelist: ['createdAt'],
         defaultSort: 'createdAt',
         defaultOrder: 'desc',
         alias: 'policy',
