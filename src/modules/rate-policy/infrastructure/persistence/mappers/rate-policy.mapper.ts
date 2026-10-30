@@ -3,6 +3,7 @@ import { BillingUnit } from '../../../domain/enums/billing-unit.enum';
 import { RateKind } from '../../../domain/enums/rate-kind.enum';
 import { RateType } from '../../../domain/enums/rate-type.enum';
 import { RateItem } from '../../../domain/value-objects/rate-item.vo';
+import { RatePrice } from '../../../domain/value-objects/rate-price.vo';
 import {
   RatePolicyTypeormEntity,
   StoredRateItem,
@@ -21,8 +22,13 @@ export class RatePolicyMapper {
           type: item.type as RateType,
           name: item.name,
           rateKind: item.rate_kind as RateKind,
-          unitPrice: item.unit_price,
-          steps: item.steps,
+          unitPrice: item.unit_price?.value ?? null,
+          steps:
+            item.steps?.map((step) => ({
+              from: step.from,
+              to: step.to,
+              price: step.price.value,
+            })) ?? null,
           billingUnit: item.billing_unit as BillingUnit,
         }),
       ),
@@ -46,8 +52,14 @@ export class RatePolicyMapper {
         type: item.type,
         name: item.name,
         rate_kind: item.rateKind,
-        unit_price: item.unitPrice,
-        steps: item.steps,
+        unit_price:
+          item.unitPrice === null ? null : RatePrice.create(item.unitPrice),
+        steps:
+          item.steps?.map((step) => ({
+            from: step.from,
+            to: step.to,
+            price: RatePrice.create(step.price),
+          })) ?? null,
         billing_unit: item.billingUnit,
       };
     });
