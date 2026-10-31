@@ -11,6 +11,7 @@ import { RoomModule } from 'modules/room/room.module';
 import { ContractModule } from 'modules/contract/contract.module';
 import { RatePolicyModule } from 'modules/rate-policy/rate-policy.module';
 import { BillingSettingModule } from 'modules/billing-setting/billing-setting.module';
+import { MeterReadingModule } from 'modules/meter-reading/meter-reading.module';
 import { AdministrativeUnitModule } from 'modules/administrative-unit/administrative-unit.module';
 
 @Module({
@@ -21,6 +22,7 @@ import { AdministrativeUnitModule } from 'modules/administrative-unit/administra
     ContractModule,
     RatePolicyModule,
     BillingSettingModule,
+    MeterReadingModule,
     OutboxModule,
     HealthModule,
     BuildingModule,

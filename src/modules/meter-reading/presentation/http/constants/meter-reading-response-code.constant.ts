@@ -1,0 +1,4 @@
+export const MeterReadingResponseCodeConstant = {
+  METER_READING_CREATED: 'METER_READING_CREATED',
+  METER_READINGS_FETCHED: 'METER_READINGS_FETCHED',
+} as const;
