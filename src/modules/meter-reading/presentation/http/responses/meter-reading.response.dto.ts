@@ -3,17 +3,38 @@ import { MeterReadingEntity } from '../../../domain/entities/meter-reading.entit
 import { MeterType } from '../../../domain/enums/meter-type.enum';
 
 export class MeterReadingResponseDto {
-  @ApiProperty({ format: 'uuid' }) id: string;
-  @ApiProperty({ format: 'uuid' }) roomId: string;
-  @ApiProperty({ format: 'uuid' }) buildingId: string;
-  @ApiProperty({ enum: MeterType }) type: MeterType;
-  @ApiProperty() period: string;
-  @ApiProperty() previousReading: string;
-  @ApiProperty() currentReading: string;
-  @ApiProperty() consumption: string;
-  @ApiProperty() isBaseline: boolean;
-  @ApiProperty({ format: 'uuid' }) evidenceMediaId: string;
-  @ApiProperty({ format: 'date-time' }) createdAt: Date;
+  @ApiProperty({ format: 'uuid' })
+  id: string;
+
+  @ApiProperty({ format: 'uuid' })
+  roomId: string;
+
+  @ApiProperty({ format: 'uuid' })
+  buildingId: string;
+
+  @ApiProperty({ enum: MeterType })
+  type: MeterType;
+
+  @ApiProperty()
+  period: string;
+
+  @ApiProperty()
+  previousReading: string;
+
+  @ApiProperty()
+  currentReading: string;
+
+  @ApiProperty()
+  consumption: string;
+
+  @ApiProperty()
+  isBaseline: boolean;
+
+  @ApiProperty({ format: 'uuid' })
+  evidenceMediaId: string;
+
+  @ApiProperty({ format: 'date-time' })
+  createdAt: Date;
 
   static fromDomain(reading: MeterReadingEntity): MeterReadingResponseDto {
     const response = new MeterReadingResponseDto();

@@ -6,11 +6,9 @@ import {
   HttpStatus,
   Post,
   Query,
-  Res,
 } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Response } from 'express';
 import { AuthenticatedUser } from 'shared/application/auth/authenticated-user';
 import { PaginatedResult } from 'shared/application/pagination/paginated-result';
 import { UserRole } from 'shared/domain/enums/user-role.enum';
@@ -52,13 +50,11 @@ export class MeterReadingController {
   async create(
     @CurrentUser() user: AuthenticatedUser,
     @Body() request: CreateMeterReadingRequest,
-    @Res({ passthrough: true }) response: Response,
   ): Promise<MeterReadingResponseDto> {
     const reading = await this.commands.execute<
       MeterReadingCreateCommand,
       MeterReadingEntity
     >(CreateMeterReadingRequest.toCommand(request, user.id));
-    response.setHeader('Location', `/api/v1/meter-readings/${reading.id}`);
     return MeterReadingResponseDto.fromDomain(reading);
   }
 

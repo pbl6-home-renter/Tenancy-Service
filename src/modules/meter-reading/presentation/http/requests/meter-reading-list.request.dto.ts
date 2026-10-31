@@ -12,6 +12,7 @@ import { Uuid } from 'shared/domain/value-objects/uuid.vo';
 import { OffsetPaginationQueryRequestDto } from 'shared/presentation/pagination/offset-pagination.request.dto';
 import { IsUuid } from 'shared/presentation/validators/is-uuid.decorator';
 import { MeterType } from '../../../domain/enums/meter-type.enum';
+import { ReadingPeriod } from '../../../domain/value-objects/reading-period.vo';
 
 export class MeterReadingListFilterRequest {
   @ApiPropertyOptional({ format: 'uuid' })
@@ -24,9 +25,9 @@ export class MeterReadingListFilterRequest {
   @IsEnum(MeterType)
   type?: MeterType;
 
-  @ApiPropertyOptional({ pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' })
+  @ApiPropertyOptional({ pattern: ReadingPeriod.PATTERN.source })
   @IsOptional()
-  @Matches(/^[0-9]{4}-(0[1-9]|1[0-2])$/)
+  @Matches(ReadingPeriod.PATTERN)
   period?: string;
 }
 

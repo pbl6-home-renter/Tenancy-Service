@@ -23,13 +23,13 @@ export class CreateMeterReadingRequest {
   @IsEnum(MeterType)
   type: MeterType;
 
-  @ApiProperty({ pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' })
-  @Matches(/^[0-9]{4}-(0[1-9]|1[0-2])$/)
+  @ApiProperty({ pattern: ReadingPeriod.PATTERN.source })
+  @Matches(ReadingPeriod.PATTERN)
   period: string;
 
-  @ApiProperty({ pattern: '^(0|[1-9][0-9]*)(\\.[0-9]{1,2})?$' })
+  @ApiProperty({ pattern: MeterValue.PATTERN.source })
   @IsString()
-  @Matches(/^(0|[1-9][0-9]*)(\.[0-9]{1,2})?$/)
+  @Matches(MeterValue.PATTERN)
   currentReading: string;
 
   @ApiProperty()
