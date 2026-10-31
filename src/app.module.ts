@@ -10,6 +10,7 @@ import { BuildingModule } from 'modules/building/building.module';
 import { RoomModule } from 'modules/room/room.module';
 import { ContractModule } from 'modules/contract/contract.module';
 import { RatePolicyModule } from 'modules/rate-policy/rate-policy.module';
+import { BillingSettingModule } from 'modules/billing-setting/billing-setting.module';
 import { AdministrativeUnitModule } from 'modules/administrative-unit/administrative-unit.module';
 
 @Module({
@@ -19,6 +20,7 @@ import { AdministrativeUnitModule } from 'modules/administrative-unit/administra
     RoomModule,
     ContractModule,
     RatePolicyModule,
+    BillingSettingModule,
     OutboxModule,
     HealthModule,
     BuildingModule,
