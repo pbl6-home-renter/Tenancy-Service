@@ -1,16 +1,15 @@
 import { ValidationException } from 'shared/domain/exceptions/validation.exception';
 
 export class MeterValue {
+  static readonly PATTERN = /^(0|[1-9][0-9]*)(\.[0-9]{1,2})?$/;
+
   private constructor(
     readonly value: string,
     readonly cents: bigint,
   ) {}
 
   static create(value: string): MeterValue {
-    if (
-      typeof value !== 'string' ||
-      !/^(0|[1-9][0-9]*)(\.[0-9]{1,2})?$/.test(value)
-    ) {
+    if (typeof value !== 'string' || !this.PATTERN.test(value)) {
       throw new ValidationException(
         'reading must be a non-negative decimal with at most two fractional digits',
       );
