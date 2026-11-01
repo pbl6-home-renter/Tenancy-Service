@@ -12,21 +12,35 @@ import { ContractUpdateCommandHandler } from './application/commands/contract-up
 import { ContractGetByIdQueryHandler } from './application/queries/contract-get-by-id/contract-get-by-id.query.handler';
 import { ContractListQueryHandler } from './application/queries/contract-list/contract-list.query.handler';
 import { ContractController } from './presentation/http/controllers/contract.controller';
+import { ContractTemplateTypeormEntity } from './infrastructure/persistence/contract-template.entity';
+import { TypeOrmContractTemplateRepository } from './infrastructure/persistence/contract-template.repository';
+import { PdfContractDocumentRenderer } from './infrastructure/document/pdf-contract-document.renderer';
+import { ContractTemplateListQueryHandler } from './application/queries/contract-template-list/contract-template-list.query.handler';
+import { ContractTemplateGetQueryHandler } from './application/queries/contract-template-get/contract-template-get.query.handler';
+import { ContractTemplateController } from './presentation/http/controllers/contract-template.controller';
 
 const commandHandlers = [
   ContractCreateCommandHandler,
   ContractUpdateCommandHandler,
 ];
-const queryHandlers = [ContractGetByIdQueryHandler, ContractListQueryHandler];
+const queryHandlers = [
+  ContractGetByIdQueryHandler,
+  ContractListQueryHandler,
+  ContractTemplateListQueryHandler,
+  ContractTemplateGetQueryHandler,
+];
 
 @Module({
   imports: [
     CqrsModule,
-    TypeOrmModule.forFeature([ContractTypeormEntity]),
+    TypeOrmModule.forFeature([
+      ContractTypeormEntity,
+      ContractTemplateTypeormEntity,
+    ]),
     RoomModule,
     OutboxModule,
   ],
-  controllers: [ContractController],
+  controllers: [ContractController, ContractTemplateController],
   providers: [
     {
       provide: CONTRACT_DI_TOKEN.REPOSITORY,
@@ -35,6 +49,14 @@ const queryHandlers = [ContractGetByIdQueryHandler, ContractListQueryHandler];
     {
       provide: CONTRACT_DI_TOKEN.READ_REPOSITORY,
       useClass: TypeOrmContractReadRepository,
+    },
+    {
+      provide: CONTRACT_DI_TOKEN.TEMPLATE_REPOSITORY,
+      useClass: TypeOrmContractTemplateRepository,
+    },
+    {
+      provide: CONTRACT_DI_TOKEN.DOCUMENT_RENDERER,
+      useClass: PdfContractDocumentRenderer,
     },
     ...commandHandlers,
     ...queryHandlers,

@@ -10,12 +10,13 @@ const SRC_ROOT = __dirname + '/../../..';
 /** Matches `@Entity(` in TypeScript and its compiled form in `dist/`. */
 const ENTITY_DECORATOR = /@Entity\(|\.Entity\)\(/;
 const ENTITY_FILE =
-  /\/infrastructure\/persistence\/[^/]+\.typeorm-entity\.(ts|js)$/;
+  /\/infrastructure\/persistence\/[^/]+\.(?:typeorm-entity|entity)\.(ts|js)$/;
 
 /**
  * TypeORM loads entities by file name, so a misnamed entity would be skipped
  * silently and only fail at query time ("No metadata for X"). Every entity
- * must live at `modules/<context>/infrastructure/persistence/*.typeorm-entity.ts`.
+ * must live directly under `modules/<context>/infrastructure/persistence/`
+ * and use the `.typeorm-entity.ts` or `.entity.ts` suffix.
  */
 function entityGlobs(): string[] {
   const modulesDir = join(SRC_ROOT, 'modules');
@@ -32,7 +33,7 @@ function entityGlobs(): string[] {
 
   if (misplaced.length > 0) {
     throw new Error(
-      'TypeORM entities must be named modules/<context>/infrastructure/persistence/*.typeorm-entity.ts: ' +
+      'TypeORM entities must be named modules/<context>/infrastructure/persistence/*.typeorm-entity.ts or *.entity.ts: ' +
         misplaced.map((path) => `modules${path}`).join(', '),
     );
   }
@@ -40,6 +41,7 @@ function entityGlobs(): string[] {
   return [
     SRC_ROOT +
       '/modules/*/infrastructure/persistence/*.typeorm-entity{.ts,.js}',
+    SRC_ROOT + '/modules/*/infrastructure/persistence/*.entity{.ts,.js}',
   ];
 }
 
