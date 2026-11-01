@@ -86,4 +86,7 @@ export class ContractTypeormEntity extends AbstractEntity {
 
   @Column({ type: 'text', nullable: true })
   description: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  activatedAt: Date | null;
 }

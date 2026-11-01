@@ -219,6 +219,22 @@ export class Room extends AggregateRoot {
     );
   }
 
+  occupyByContract(): void {
+    this.assertNotDeleted();
+    if (this._status !== RoomStatus.AVAILABLE) {
+      throw new InvalidRoomException(
+        'Only an available room can be occupied by an active contract',
+      );
+    }
+
+    const previousStatus = this._status;
+    this._status = RoomStatus.OCCUPIED;
+    this.touch();
+    this.addDomainEvent(
+      new RoomStatusChangedEvent(this.id, previousStatus, RoomStatus.OCCUPIED),
+    );
+  }
+
   markReady(): void {
     this.assertNotDeleted();
     if (this._status !== RoomStatus.MAINTENANCE) {

@@ -11,7 +11,7 @@ import {
   ContractReadRepository,
 } from '../../domain/repositories/contract-read.repository';
 import { ContractListFilter } from '../../domain/repositories/contract.repository';
-import { ContractTypeormEntity } from './contract.typeorm-entity';
+import { ContractTypeormEntity } from './contract.entity';
 
 type ContractListRaw = Omit<
   ContractListResult,

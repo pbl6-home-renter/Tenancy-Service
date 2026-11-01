@@ -27,6 +27,7 @@ import { Roles } from 'shared/presentation/decorators/auth/access-control.decora
 import { CurrentUser } from 'shared/presentation/decorators/auth/current-user.decorator';
 import { ResponseCode } from 'shared/presentation/decorators/response-code.decorator';
 import { PaginatedResponseDto } from 'shared/presentation/pagination/paginated.response.dto';
+import { ContractActivateCommand } from '../../../application/commands/contract-activate/contract-activate.command';
 import { ContractCreateCommand } from '../../../application/commands/contract-create/contract-create.command';
 import { ContractUpdateCommand } from '../../../application/commands/contract-update/contract-update.command';
 import { ContractGetByIdQuery } from '../../../application/queries/contract-get-by-id/contract-get-by-id.query';
@@ -34,9 +35,11 @@ import { ContractListQuery } from '../../../application/queries/contract-list/co
 import { ContractListResult } from '../../../application/queries/contract-list/contract-list.result';
 import { ContractEntity } from '../../../domain/entities/contract.entity';
 import { ContractResponseCodeConstant } from '../constants/contract-response-code.constant';
+import { ActivateContractRequest } from '../requests/activate-contract.request';
 import { CreateContractRequest } from '../requests/create-contract.request';
 import { ListContractsQueryRequestDto } from '../requests/list-contracts.query.request.dto';
 import { UpdateContractRequest } from '../requests/update-contract.request';
+import { ContractActivateResponseDto } from '../responses/contract-activate.response.dto';
 import { ContractCreateResponseDto } from '../responses/contract-create.response.dto';
 import { ContractDetailResponseDto } from '../responses/contract-detail.response.dto';
 import { ContractListItemResponseDto } from '../responses/contract-list-item.response.dto';
@@ -142,5 +145,30 @@ export class ContractController {
       ContractEntity
     >(UpdateContractRequest.toCommand(request, contractId, user.id));
     return ContractUpdateResponseDto.fromDomain(contract);
+  }
+
+  @Post(':contractId/activate-contract')
+  @Roles(UserRole.LANDLORD)
+  @HttpCode(HttpStatus.OK)
+  @ResponseCode(ContractResponseCodeConstant.CONTRACT_ACTIVATED)
+  @ApiOperation({
+    operationId: 'postContractsContractidActivateContract',
+    summary: 'Activate signed contract',
+  })
+  @ApiParam({ name: 'contractId', type: String, format: 'uuid' })
+  @ApiSuccessResponse({
+    code: ContractResponseCodeConstant.CONTRACT_ACTIVATED,
+    dataDto: ContractActivateResponseDto,
+  })
+  async activate(
+    @Param('contractId', ParseUUIDPipe) contractId: Uuid,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() request: ActivateContractRequest,
+  ): Promise<ContractActivateResponseDto> {
+    const contract = await this.commandBus.execute<
+      ContractActivateCommand,
+      ContractEntity
+    >(ActivateContractRequest.toCommand(request, contractId, user.id));
+    return ContractActivateResponseDto.fromDomain(contract);
   }
 }
