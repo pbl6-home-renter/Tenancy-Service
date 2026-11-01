@@ -14,7 +14,7 @@ import {
   ContractListFilter,
   ContractRepository,
 } from '../../domain/repositories/contract.repository';
-import { ContractTypeormEntity } from './contract.typeorm-entity';
+import { ContractTypeormEntity } from './contract.entity';
 import { ContractMapper } from './mappers/contract.mapper';
 
 @Injectable()

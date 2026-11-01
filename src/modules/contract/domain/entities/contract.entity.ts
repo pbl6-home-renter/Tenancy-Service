@@ -34,6 +34,7 @@ export class ContractEntity extends AggregateRoot {
     private readonly _vehicleCount: number | null,
     private _status: ContractStatus,
     private _description: string | null,
+    private _activatedAt: Date | null,
     createdAt: Date,
     updatedAt: Date,
     isDeleted: boolean,
@@ -48,6 +49,7 @@ export class ContractEntity extends AggregateRoot {
       id: generateUuid(),
       status: ContractStatus.DRAFT,
       description: null,
+      activatedAt: null,
       createdAt: now,
       updatedAt: now,
       isDeleted: false,
@@ -70,6 +72,9 @@ export class ContractEntity extends AggregateRoot {
       throw new ValidationException('Invalid contract status');
     }
     ContractEntity.assertNullableText('description', props.description, 500);
+    if (props.activatedAt !== null) {
+      ContractEntity.assertTimestamp('activatedAt', props.activatedAt);
+    }
     ContractEntity.assertTimestamp('createdAt', props.createdAt);
     ContractEntity.assertTimestamp('updatedAt', props.updatedAt);
 
@@ -87,6 +92,7 @@ export class ContractEntity extends AggregateRoot {
       props.vehicleCount,
       props.status,
       props.description,
+      props.activatedAt === null ? null : new Date(props.activatedAt),
       new Date(props.createdAt),
       new Date(props.updatedAt),
       props.isDeleted,
@@ -141,6 +147,10 @@ export class ContractEntity extends AggregateRoot {
     return this._description;
   }
 
+  get activatedAt(): Date | null {
+    return this._activatedAt === null ? null : new Date(this._activatedAt);
+  }
+
   updateDraft(input: UpdateContractProps): void {
     this.assertDraft();
     ContractEntity.assertNullableText('description', input.description, 500);
@@ -159,6 +169,7 @@ export class ContractEntity extends AggregateRoot {
     }
     ContractEntity.assertTimestamp('activation time', now);
     this._status = ContractStatus.ACTIVE;
+    this._activatedAt = new Date(now);
     this.touch();
     this.addDomainEvent(
       new ContractActivatedEvent(

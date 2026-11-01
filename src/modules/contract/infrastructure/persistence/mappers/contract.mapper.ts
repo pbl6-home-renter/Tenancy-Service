@@ -1,5 +1,5 @@
 import { ContractEntity } from '../../../domain/entities/contract.entity';
-import { ContractTypeormEntity } from '../contract.typeorm-entity';
+import { ContractTypeormEntity } from '../contract.entity';
 
 export class ContractMapper {
   static toDomain(raw: ContractTypeormEntity): ContractEntity {
@@ -17,6 +17,7 @@ export class ContractMapper {
       endDate: raw.endDate,
       vehicleCount: raw.vehicleCount,
       description: raw.description,
+      activatedAt: raw.activatedAt,
       createdAt: raw.createdAt,
       updatedAt: raw.updatedAt,
       isDeleted: raw.isDeleted,
@@ -38,6 +39,7 @@ export class ContractMapper {
     raw.endDate = contract.endDate;
     raw.vehicleCount = contract.vehicleCount;
     raw.description = contract.description;
+    raw.activatedAt = contract.activatedAt;
     raw.createdAt = contract.createdAt;
     raw.updatedAt = contract.updatedAt;
     raw.isDeleted = contract.isDeleted;

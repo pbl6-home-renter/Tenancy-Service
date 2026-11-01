@@ -18,6 +18,7 @@ export interface ContractProps extends CreateContractProps {
   id: Uuid;
   status: ContractStatus;
   description: string | null;
+  activatedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
   isDeleted: boolean;
