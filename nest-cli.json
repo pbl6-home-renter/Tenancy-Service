@@ -8,6 +8,10 @@
       {
         "include": "modules/administrative-unit/infrastructure/data/*.json",
         "watchAssets": true
+      },
+      {
+        "include": "modules/contract/infrastructure/document/fonts/*",
+        "watchAssets": true
       }
     ]
   }
