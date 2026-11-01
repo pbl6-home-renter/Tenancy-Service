@@ -27,6 +27,18 @@ export class MeterValue {
       throw new ValidationException(
         'current reading is below previous reading',
       );
+    return this.format(cents);
+  }
+
+  static sum(values: readonly string[]): string {
+    const cents = values.reduce(
+      (total, value) => total + MeterValue.create(value).cents,
+      0n,
+    );
+    return this.format(cents);
+  }
+
+  private static format(cents: bigint): string {
     const fraction = (cents % 100n)
       .toString()
       .padStart(2, '0')

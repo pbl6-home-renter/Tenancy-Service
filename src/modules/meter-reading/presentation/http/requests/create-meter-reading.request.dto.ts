@@ -3,6 +3,7 @@ import {
   IsBoolean,
   IsDefined,
   IsEnum,
+  IsOptional,
   IsString,
   Matches,
 } from 'class-validator';
@@ -32,6 +33,12 @@ export class CreateMeterReadingRequest {
   @Matches(MeterValue.PATTERN)
   currentReading: string;
 
+  @ApiProperty({ required: false, pattern: MeterValue.PATTERN.source })
+  @IsOptional()
+  @IsString()
+  @Matches(MeterValue.PATTERN)
+  previousReading?: string;
+
   @ApiProperty()
   @IsBoolean()
   isBaseline: boolean;
@@ -52,6 +59,9 @@ export class CreateMeterReadingRequest {
       ReadingPeriod.create(request.period),
       MeterValue.create(request.currentReading),
       request.isBaseline,
+      request.previousReading === undefined
+        ? null
+        : MeterValue.create(request.previousReading),
       request.evidenceMediaId,
     );
   }

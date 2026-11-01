@@ -84,6 +84,21 @@ export class TypeOrmRoomRepository implements RoomRepository {
     return raw ? RoomMapper.toDomain(raw) : null;
   }
 
+  async findManyByIdsForUpdate(
+    ids: Uuid[],
+    context: TransactionContext,
+  ): Promise<Room[]> {
+    if (ids.length === 0) return [];
+    const raw = await withTransaction(this.repository, context)
+      .createQueryBuilder('room')
+      .where('room.id IN (:...ids)', { ids })
+      .andWhere('room.isDeleted = false')
+      .orderBy('room.id', 'ASC')
+      .setLock('pessimistic_write')
+      .getMany();
+    return raw.map(RoomMapper.toDomain);
+  }
+
   async existsByBuildingAndName(
     buildingId: Uuid,
     name: string,

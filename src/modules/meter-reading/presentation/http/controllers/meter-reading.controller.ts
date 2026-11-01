@@ -18,12 +18,16 @@ import { CurrentUser } from 'shared/presentation/decorators/auth/current-user.de
 import { ResponseCode } from 'shared/presentation/decorators/response-code.decorator';
 import { PaginatedResponseDto } from 'shared/presentation/pagination/paginated.response.dto';
 import { MeterReadingCreateCommand } from '../../../application/commands/meter-reading-create/meter-reading-create.command';
+import { MeterReadingBulkCreateCommand } from '../../../application/commands/meter-reading-bulk-create/meter-reading-bulk-create.command';
+import { MeterReadingBulkCreateResult } from '../../../application/commands/meter-reading-bulk-create/meter-reading-bulk-create.result';
 import { MeterReadingListQuery } from '../../../application/queries/meter-reading-list/meter-reading-list.query';
 import { MeterReadingEntity } from '../../../domain/entities/meter-reading.entity';
 import { MeterReadingResponseCodeConstant as Code } from '../constants/meter-reading-response-code.constant';
 import { CreateMeterReadingRequest } from '../requests/create-meter-reading.request.dto';
+import { BulkCreateMeterReadingsRequest } from '../requests/bulk-create-meter-readings.request.dto';
 import { MeterReadingListRequest } from '../requests/meter-reading-list.request.dto';
 import { MeterReadingResponseDto } from '../responses/meter-reading.response.dto';
+import { BulkMeterReadingResponseDto } from '../responses/bulk-meter-reading.response.dto';
 
 @ApiTags('MeterReading')
 @ApiBearerAuth()
@@ -34,6 +38,29 @@ export class MeterReadingController {
     private readonly commands: CommandBus,
     private readonly queries: QueryBus,
   ) {}
+
+  @Post('bulk')
+  @HttpCode(HttpStatus.CREATED)
+  @ResponseCode(Code.METER_READINGS_BULK_RECORDED)
+  @ApiOperation({
+    operationId: 'postBulkMeterReadings',
+    summary: 'Record up to 200 meter readings atomically',
+  })
+  @ApiSuccessResponse({
+    status: HttpStatus.CREATED,
+    code: Code.METER_READINGS_BULK_RECORDED,
+    dataDto: BulkMeterReadingResponseDto,
+  })
+  async createBulk(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() request: BulkCreateMeterReadingsRequest,
+  ): Promise<BulkMeterReadingResponseDto> {
+    const result = await this.commands.execute<
+      MeterReadingBulkCreateCommand,
+      MeterReadingBulkCreateResult
+    >(request.toCommand(user.id));
+    return BulkMeterReadingResponseDto.fromResult(result);
+  }
 
   @Post()
   @HttpCode(HttpStatus.CREATED)

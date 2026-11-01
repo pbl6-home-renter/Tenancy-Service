@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import type { QueryDeepPartialEntity } from 'typeorm';
 import { OffsetPageQuery } from 'shared/application/pagination/offset-page-query';
 import { PaginatedResult } from 'shared/application/pagination/paginated-result';
 import { ValidationException } from 'shared/domain/exceptions/validation.exception';
@@ -61,6 +62,35 @@ export class TypeOrmMeterReadingRepository
       order: { period: 'DESC' },
     });
     return raw ? MeterReadingMapper.toDomain(raw) : null;
+  }
+
+  async findLatestForRooms(
+    roomIds: Uuid[],
+    context: TransactionContext,
+  ): Promise<MeterReadingEntity[]> {
+    if (roomIds.length === 0) return [];
+    const raw = await withTransaction(this.repository, context)
+      .createQueryBuilder('reading')
+      .distinctOn(['reading.roomId', 'reading.type'])
+      .where('reading.roomId IN (:...roomIds)', { roomIds })
+      .andWhere('reading.isDeleted = false')
+      .orderBy('reading.roomId', 'ASC')
+      .addOrderBy('reading.type', 'ASC')
+      .addOrderBy('reading.period', 'DESC')
+      .getMany();
+    return raw.map(MeterReadingMapper.toDomain);
+  }
+
+  async insertMany(
+    readings: MeterReadingEntity[],
+    context: TransactionContext,
+  ): Promise<void> {
+    if (readings.length === 0) return;
+    await withTransaction(this.repository, context).insert(
+      readings.map(
+        MeterReadingMapper.toPersistence,
+      ) as QueryDeepPartialEntity<MeterReadingTypeormEntity>[],
+    );
   }
 
   async existsFor(
