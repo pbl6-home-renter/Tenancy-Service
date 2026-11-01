@@ -16,4 +16,12 @@ export interface MeterReadingRepository extends BaseRepository<MeterReadingEntit
     period: string,
     context: TransactionContext,
   ): Promise<boolean>;
+  findLatestForRooms(
+    roomIds: Uuid[],
+    context: TransactionContext,
+  ): Promise<MeterReadingEntity[]>;
+  insertMany(
+    readings: MeterReadingEntity[],
+    context: TransactionContext,
+  ): Promise<void>;
 }

@@ -20,6 +20,10 @@ export interface RoomRepository extends BaseRepository<Room> {
     id: Uuid,
     context: TransactionContext,
   ): Promise<Room | null>;
+  findManyByIdsForUpdate(
+    ids: Uuid[],
+    context: TransactionContext,
+  ): Promise<Room[]>;
   existsByBuildingAndName(
     buildingId: Uuid,
     name: string,
