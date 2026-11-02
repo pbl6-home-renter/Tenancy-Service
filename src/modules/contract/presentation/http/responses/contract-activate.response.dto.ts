@@ -1,10 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { Uuid } from 'shared/domain/value-objects/uuid.vo';
 import { ContractEntity } from '../../../domain/entities/contract.entity';
 import { ContractStatus } from '../../../domain/enums/contract-status.enum';
 
 export class ContractActivateResponseDto {
-  @ApiProperty({ format: 'uuid' })
-  id: string;
+  @ApiProperty({ type: String, format: 'uuid' })
+  id: Uuid;
 
   @ApiProperty({ enum: [ContractStatus.ACTIVE] })
   status: ContractStatus;

@@ -21,13 +21,24 @@ import { IdentityMediaLookupAdapter } from './infrastructure/media/identity-medi
 import { ContractTemplateListQueryHandler } from './application/queries/contract-template-list/contract-template-list.query.handler';
 import { ContractTemplateGetQueryHandler } from './application/queries/contract-template-get/contract-template-get.query.handler';
 import { ContractTemplateController } from './presentation/http/controllers/contract-template.controller';
+import { ContractMemberTypeormEntity } from './infrastructure/persistence/contract-member.entity';
+import { TypeOrmContractMemberRepository } from './infrastructure/persistence/contract-member.repository';
+import { ContractMemberController } from './presentation/http/controllers/contract-member.controller';
+import { ContractMemberListQueryHandler } from './application/queries/contract-member-list/contract-member-list.query.handler';
+import { ContractMemberAddCommandHandler } from './application/commands/contract-member-add/contract-member-add.command.handler';
+import { ContractMemberUpdateCommandHandler } from './application/commands/contract-member-update/contract-member-update.command.handler';
+import { ContractMemberLeaveCommandHandler } from './application/commands/contract-member-leave/contract-member-leave.command.handler';
 
 const commandHandlers = [
+  ContractMemberAddCommandHandler,
+  ContractMemberUpdateCommandHandler,
+  ContractMemberLeaveCommandHandler,
   ContractCreateCommandHandler,
   ContractUpdateCommandHandler,
   ContractActivateCommandHandler,
 ];
 const queryHandlers = [
+  ContractMemberListQueryHandler,
   ContractGetByIdQueryHandler,
   ContractListQueryHandler,
   ContractTemplateListQueryHandler,
@@ -38,6 +49,7 @@ const queryHandlers = [
   imports: [
     CqrsModule,
     TypeOrmModule.forFeature([
+      ContractMemberTypeormEntity,
       ContractTypeormEntity,
       ContractTemplateTypeormEntity,
     ]),
@@ -45,8 +57,16 @@ const queryHandlers = [
     OutboxModule,
     InternalHttpModule,
   ],
-  controllers: [ContractController, ContractTemplateController],
+  controllers: [
+    ContractController,
+    ContractTemplateController,
+    ContractMemberController,
+  ],
   providers: [
+    {
+      provide: CONTRACT_DI_TOKEN.MEMBER_REPOSITORY,
+      useClass: TypeOrmContractMemberRepository,
+    },
     {
       provide: CONTRACT_DI_TOKEN.REPOSITORY,
       useClass: TypeOrmContractRepository,
@@ -70,6 +90,6 @@ const queryHandlers = [
     ...commandHandlers,
     ...queryHandlers,
   ],
-  exports: [CONTRACT_DI_TOKEN.REPOSITORY],
+  exports: [CONTRACT_DI_TOKEN.REPOSITORY, CONTRACT_DI_TOKEN.MEMBER_REPOSITORY],
 })
 export class ContractModule {}
