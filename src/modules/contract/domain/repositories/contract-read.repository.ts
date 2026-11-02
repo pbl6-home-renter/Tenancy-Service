@@ -18,8 +18,19 @@ export interface ContractListResult {
 }
 
 export interface ContractReadRepository {
+  findPageByTenant(
+    tenantId: Uuid,
+    query: OffsetPageQuery<ContractListFilter>,
+  ): Promise<PaginatedResult<ContractMyListResult>>;
   findPageByLandlord(
     landlordId: Uuid,
     query: OffsetPageQuery<ContractListFilter>,
   ): Promise<PaginatedResult<ContractListResult>>;
+}
+
+export interface ContractMyListResult extends Omit<
+  ContractListResult,
+  'tenantName' | 'tenantPhone'
+> {
+  buildingName: string;
 }

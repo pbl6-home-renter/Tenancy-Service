@@ -28,6 +28,8 @@ import { ContractMemberListQueryHandler } from './application/queries/contract-m
 import { ContractMemberAddCommandHandler } from './application/commands/contract-member-add/contract-member-add.command.handler';
 import { ContractMemberUpdateCommandHandler } from './application/commands/contract-member-update/contract-member-update.command.handler';
 import { ContractMemberLeaveCommandHandler } from './application/commands/contract-member-leave/contract-member-leave.command.handler';
+import { ContractMyListQueryHandler } from './application/queries/contract-my-list/contract-my-list.query.handler';
+import { ContractMyController } from './presentation/http/controllers/contract-my.controller';
 
 const commandHandlers = [
   ContractMemberAddCommandHandler,
@@ -38,6 +40,7 @@ const commandHandlers = [
   ContractActivateCommandHandler,
 ];
 const queryHandlers = [
+  ContractMyListQueryHandler,
   ContractMemberListQueryHandler,
   ContractGetByIdQueryHandler,
   ContractListQueryHandler,
@@ -58,6 +61,7 @@ const queryHandlers = [
     InternalHttpModule,
   ],
   controllers: [
+    ContractMyController,
     ContractController,
     ContractTemplateController,
     ContractMemberController,

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Brackets, Repository } from 'typeorm';
+import { BuildingTypeormEntity } from 'modules/building/infrastructure/persistence/building.typeorm-entity';
 import { RoomTypeormEntity } from 'modules/room/infrastructure/persistence/room.typeorm-entity';
 import { OffsetPageQuery } from 'shared/application/pagination/offset-page-query';
 import { PaginatedResult } from 'shared/application/pagination/paginated-result';
@@ -8,13 +9,23 @@ import { Uuid } from 'shared/domain/value-objects/uuid.vo';
 import { applySortingToQueryBuilder } from 'shared/infrastructure/database/pagination/sort.helper';
 import {
   ContractListResult,
+  ContractMyListResult,
   ContractReadRepository,
 } from '../../domain/repositories/contract-read.repository';
 import { ContractListFilter } from '../../domain/repositories/contract.repository';
+import { ContractMemberTypeormEntity } from './contract-member.entity';
 import { ContractTypeormEntity } from './contract.entity';
 
 type ContractListRaw = Omit<
   ContractListResult,
+  'rentPrice' | 'depositAmount'
+> & {
+  rentPrice: string | number;
+  depositAmount: string | number;
+};
+
+type ContractMyListRaw = Omit<
+  ContractMyListResult,
   'rentPrice' | 'depositAmount'
 > & {
   rentPrice: string | number;
@@ -27,6 +38,90 @@ export class TypeOrmContractReadRepository implements ContractReadRepository {
     @InjectRepository(ContractTypeormEntity)
     private readonly repository: Repository<ContractTypeormEntity>,
   ) {}
+
+  async findPageByTenant(
+    tenantId: Uuid,
+    options: OffsetPageQuery<ContractListFilter>,
+  ): Promise<PaginatedResult<ContractMyListResult>> {
+    const query = this.repository
+      .createQueryBuilder('contract')
+      .innerJoin(RoomTypeormEntity, 'room', 'room.id = contract.roomId')
+      .innerJoin(
+        BuildingTypeormEntity,
+        'building',
+        'building.id = room.buildingId',
+      )
+      .select('contract.id', 'id')
+      .addSelect('contract.roomId', 'roomId')
+      .addSelect('room.name', 'roomName')
+      .addSelect('building.name', 'buildingName')
+      .addSelect('contract.status', 'status')
+      .addSelect('contract.rentPrice', 'rentPrice')
+      .addSelect('contract.depositAmount', 'depositAmount')
+      .addSelect('contract.startDate', 'startDate')
+      .addSelect('contract.endDate', 'endDate')
+      .where('contract.isDeleted = false');
+
+    const membership = query
+      .subQuery()
+      .select('1')
+      .from(ContractMemberTypeormEntity, 'member')
+      .where('member.contractId = contract.id')
+      .andWhere('member.tenantId = :tenantId', { tenantId })
+      .andWhere('member.isDeleted = false')
+      .andWhere('(member.leftAt IS NULL OR member.leftAt > :today)', {
+        today: new Date().toISOString().slice(0, 10),
+      });
+    query.andWhere(
+      new Brackets((builder) => {
+        builder
+          .where('contract.tenantId = :tenantId', { tenantId })
+          .orWhere(`EXISTS ${membership.getQuery()}`);
+      }),
+    );
+
+    if (options.filter?.roomId) {
+      query.andWhere('contract.roomId = :roomId', {
+        roomId: options.filter.roomId,
+      });
+    }
+    if (options.filter?.status) {
+      query.andWhere('contract.status = :status', {
+        status: options.filter.status,
+      });
+    }
+    applySortingToQueryBuilder(query, options, {
+      whitelist: ['startDate'],
+      defaultSort: 'startDate',
+      defaultOrder: 'desc',
+      alias: 'contract',
+    });
+
+    const pageNo = options.pageNo > 0 ? options.pageNo : 1;
+    const pageSize = options.pageSize > 0 ? options.pageSize : 20;
+    const totalItems = await query.clone().getCount();
+    const rows = await query
+      .offset((pageNo - 1) * pageSize)
+      .limit(pageSize)
+      .getRawMany<ContractMyListRaw>();
+    const totalPages = Math.ceil(totalItems / pageSize);
+    return {
+      data: rows.map((row) => ({
+        ...row,
+        rentPrice: Number(row.rentPrice),
+        depositAmount: Number(row.depositAmount),
+      })),
+      pagination: {
+        type: 'offset',
+        pageNo,
+        pageSize,
+        totalItems,
+        totalPages,
+        hasNextPage: pageNo < totalPages,
+        hasPreviousPage: pageNo > 1,
+      },
+    };
+  }
 
   async findPageByLandlord(
     landlordId: Uuid,
