@@ -1,16 +1,17 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { Uuid } from 'shared/domain/value-objects/uuid.vo';
 import { ContractListResult } from '../../../application/queries/contract-list/contract-list.result';
 import { ContractStatus } from '../../../domain/enums/contract-status.enum';
 
 export class ContractListItemResponseDto {
-  @ApiProperty({ format: 'uuid' })
-  id: string;
+  @ApiProperty({ type: String, format: 'uuid' })
+  id: Uuid;
 
   @ApiProperty({ example: 'HD-3fa85f' })
   contractCode: string;
 
-  @ApiProperty({ format: 'uuid' })
-  roomId: string;
+  @ApiProperty({ type: String, format: 'uuid' })
+  roomId: Uuid;
 
   @ApiProperty()
   roomName: string;

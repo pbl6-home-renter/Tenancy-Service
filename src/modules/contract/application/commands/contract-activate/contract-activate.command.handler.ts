@@ -9,6 +9,8 @@ import { ROOM_DI_TOKEN } from 'modules/room/room.di-token';
 import { UNIT_OF_WORK_DI_TOKEN } from 'shared/application/di-tokens';
 import { IUnitOfWork } from 'shared/application/ports/unit-of-work.port';
 import { CONTRACT_DI_TOKEN } from '../../../contract.di-token';
+import { ContractMember } from '../../../domain/entities/contract-member.entity';
+import { ContractMemberRepository } from '../../../domain/repositories/contract-member.repository';
 import { ContractEntity } from '../../../domain/entities/contract.entity';
 import { ContractForbiddenException } from '../../../domain/exceptions/contract-forbidden.exception';
 import { ContractNotFoundException } from '../../../domain/exceptions/contract-not-found.exception';
@@ -23,6 +25,8 @@ export class ContractActivateCommandHandler implements ICommandHandler<
   ContractEntity
 > {
   constructor(
+    @Inject(CONTRACT_DI_TOKEN.MEMBER_REPOSITORY)
+    private readonly memberRepository: ContractMemberRepository,
     @Inject(CONTRACT_DI_TOKEN.REPOSITORY)
     private readonly contractRepository: ContractRepository,
     @Inject(ROOM_DI_TOKEN.REPOSITORY)
@@ -69,13 +73,23 @@ export class ContractActivateCommandHandler implements ICommandHandler<
       const activatedAt = new Date();
       contract.activate(command.signedContractMediaId, activatedAt);
       room.occupyByContract();
+      const representative = ContractMember.add({
+        contractId: contract.id,
+        tenantId: contract.tenantId,
+        tenantName: contract.tenantName,
+        tenantPhone: contract.tenantPhone,
+        joinedAt: new Date(contract.startDate),
+      });
+      await this.memberRepository.save(representative, context);
 
       await this.contractRepository.save(contract, context);
       await this.roomRepository.save(room, context);
       await this.outboxRepository.append(
-        [...contract.pullDomainEvents(), ...room.pullDomainEvents()].map(
-          (event) => OutboxMessage.fromDomainEvent(event),
-        ),
+        [
+          ...contract.pullDomainEvents(),
+          ...representative.pullDomainEvents(),
+          ...room.pullDomainEvents(),
+        ].map((event) => OutboxMessage.fromDomainEvent(event)),
         context,
       );
       return contract;
