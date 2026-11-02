@@ -6,6 +6,7 @@ import { ContractEntity } from '../../../domain/entities/contract.entity';
 import { ContractForbiddenException } from '../../../domain/exceptions/contract-forbidden.exception';
 import { ContractNotFoundException } from '../../../domain/exceptions/contract-not-found.exception';
 import { ContractRepository } from '../../../domain/repositories/contract.repository';
+import { ContractMemberRepository } from '../../../domain/repositories/contract-member.repository';
 import { ContractGetByIdQuery } from './contract-get-by-id.query';
 
 @QueryHandler(ContractGetByIdQuery)
@@ -16,6 +17,8 @@ export class ContractGetByIdQueryHandler implements IQueryHandler<
   constructor(
     @Inject(CONTRACT_DI_TOKEN.REPOSITORY)
     private readonly contractRepository: ContractRepository,
+    @Inject(CONTRACT_DI_TOKEN.MEMBER_REPOSITORY)
+    private readonly members: ContractMemberRepository,
   ) {}
 
   async execute(query: ContractGetByIdQuery): Promise<ContractEntity> {
@@ -27,7 +30,12 @@ export class ContractGetByIdQueryHandler implements IQueryHandler<
     const isOwner =
       user.role === UserRole.LANDLORD && contract.landlordId === user.id;
     const isTenant =
-      user.role === UserRole.TENANT && contract.tenantId === user.id;
+      user.role === UserRole.TENANT &&
+      (contract.tenantId === user.id ||
+        (await this.members.existsActiveByContractAndTenant(
+          contract.id,
+          user.id,
+        )));
     if (!isOwner && !isTenant) {
       throw new ContractForbiddenException();
     }
