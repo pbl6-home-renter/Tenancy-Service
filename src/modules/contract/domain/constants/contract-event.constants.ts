@@ -4,4 +4,5 @@ export const CONTRACT_EVENTS = {
   CREATED: 'contract.created',
   UPDATED: 'contract.updated',
   ACTIVATED: 'contract.activated',
+  TERMINATED: 'contract.terminated',
 } as const;

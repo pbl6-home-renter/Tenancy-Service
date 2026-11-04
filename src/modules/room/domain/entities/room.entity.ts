@@ -235,6 +235,18 @@ export class Room extends AggregateRoot {
     );
   }
 
+  releaseByContract(): void {
+    this.assertNotDeleted();
+    if (this._status === RoomStatus.MAINTENANCE) return;
+    if (this._status !== RoomStatus.OCCUPIED) {
+      throw new InvalidRoomTransitionException(
+        this._status,
+        RoomStatus.MAINTENANCE,
+      );
+    }
+    this.changeStatus(RoomStatus.MAINTENANCE);
+  }
+
   markReady(): void {
     this.assertNotDeleted();
     if (this._status !== RoomStatus.MAINTENANCE) {

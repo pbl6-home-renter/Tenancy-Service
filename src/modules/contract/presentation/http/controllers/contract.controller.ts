@@ -30,6 +30,7 @@ import { PaginatedResponseDto } from 'shared/presentation/pagination/paginated.r
 import { ContractActivateCommand } from '../../../application/commands/contract-activate/contract-activate.command';
 import { ContractCreateCommand } from '../../../application/commands/contract-create/contract-create.command';
 import { ContractUpdateCommand } from '../../../application/commands/contract-update/contract-update.command';
+import { ContractCheckoutCompleteCommand } from '../../../application/commands/contract-checkout-complete/contract-checkout-complete.command';
 import { ContractGetByIdQuery } from '../../../application/queries/contract-get-by-id/contract-get-by-id.query';
 import { ContractListQuery } from '../../../application/queries/contract-list/contract-list.query';
 import { ContractListResult } from '../../../application/queries/contract-list/contract-list.result';
@@ -39,11 +40,13 @@ import { ActivateContractRequest } from '../requests/activate-contract.request';
 import { CreateContractRequest } from '../requests/create-contract.request';
 import { ListContractsQueryRequestDto } from '../requests/list-contracts.query.request.dto';
 import { UpdateContractRequest } from '../requests/update-contract.request';
+import { CompleteContractCheckoutRequest } from '../requests/complete-contract-checkout.request';
 import { ContractActivateResponseDto } from '../responses/contract-activate.response.dto';
 import { ContractCreateResponseDto } from '../responses/contract-create.response.dto';
 import { ContractDetailResponseDto } from '../responses/contract-detail.response.dto';
 import { ContractListItemResponseDto } from '../responses/contract-list-item.response.dto';
 import { ContractUpdateResponseDto } from '../responses/contract-update.response.dto';
+import { ContractCheckoutCompleteResponseDto } from '../responses/contract-checkout-complete.response.dto';
 
 @ApiTags('Contract')
 @ApiBearerAuth()
@@ -128,7 +131,7 @@ export class ContractController {
   @ResponseCode(ContractResponseCodeConstant.CONTRACT_UPDATED)
   @ApiOperation({
     operationId: 'patchContractsContractid',
-    summary: 'Update draft contract',
+    summary: 'Update draft or active contract',
   })
   @ApiParam({ name: 'contractId', type: String, format: 'uuid' })
   @ApiSuccessResponse({
@@ -170,5 +173,33 @@ export class ContractController {
       ContractEntity
     >(ActivateContractRequest.toCommand(request, contractId, user.id));
     return ContractActivateResponseDto.fromDomain(contract);
+  }
+
+  @Post(':contractId/complete-checkout')
+  @Roles(UserRole.LANDLORD)
+  @HttpCode(HttpStatus.OK)
+  @ResponseCode(ContractResponseCodeConstant.CONTRACT_CHECKOUT_COMPLETED)
+  @ApiOperation({
+    operationId: 'postContractsContractidCompleteCheckout',
+    summary: 'Complete contract checkout',
+  })
+  @ApiParam({ name: 'contractId', type: String, format: 'uuid' })
+  @ApiSuccessResponse({
+    code: ContractResponseCodeConstant.CONTRACT_CHECKOUT_COMPLETED,
+    dataDto: ContractCheckoutCompleteResponseDto,
+  })
+  async completeCheckout(
+    @Param('contractId', ParseUUIDPipe) contractId: Uuid,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() request: CompleteContractCheckoutRequest,
+  ): Promise<ContractCheckoutCompleteResponseDto> {
+    const contract = await this.commandBus.execute<
+      ContractCheckoutCompleteCommand,
+      ContractEntity
+    >(CompleteContractCheckoutRequest.toCommand(request, contractId, user.id));
+    return ContractCheckoutCompleteResponseDto.fromDomain(
+      contract,
+      request.completedOn,
+    );
   }
 }

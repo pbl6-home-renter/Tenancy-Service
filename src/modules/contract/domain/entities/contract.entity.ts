@@ -9,6 +9,8 @@ import { ContractStatus } from '../enums/contract-status.enum';
 import { ContractCreatedEvent } from '../events/contract-created.event';
 import { ContractUpdatedEvent } from '../events/contract-updated.event';
 import { ContractActivatedEvent } from '../events/contract-activated.event';
+import { ContractTerminatedEvent } from '../events/contract-terminated.event';
+import { ContractNotActiveException } from '../exceptions/contract-not-active.exception';
 import { ContractNotFoundException } from '../exceptions/contract-not-found.exception';
 import { ContractNotDraftException } from '../exceptions/contract-not-draft.exception';
 import { ContractNotReadyException } from '../exceptions/contract-not-ready.exception';
@@ -31,7 +33,7 @@ export class ContractEntity extends AggregateRoot {
     private readonly _rentPrice: number,
     private readonly _startDate: string,
     private readonly _endDate: string,
-    private readonly _vehicleCount: number | null,
+    private _vehicleCount: number | null,
     private _status: ContractStatus,
     private _description: string | null,
     private _activatedAt: Date | null,
@@ -153,9 +155,85 @@ export class ContractEntity extends AggregateRoot {
 
   updateDraft(input: UpdateContractProps): void {
     this.assertDraft();
+    if (input.vehicleCount !== undefined) {
+      throw new ContractNotDraftException(this.id);
+    }
+    if (input.description === undefined) {
+      throw new ValidationException(
+        'description is required for a draft update',
+      );
+    }
     ContractEntity.assertNullableText('description', input.description, 500);
     this._description = input.description;
     this.recordUpdate();
+  }
+
+  updateActive(input: UpdateContractProps): void {
+    this.assertNotDeleted();
+    if (
+      this.status !== ContractStatus.ACTIVE ||
+      Object.keys(input).some(
+        (field) => field !== 'vehicleCount' && field !== 'description',
+      )
+    ) {
+      throw new ContractNotDraftException(this.id);
+    }
+    if (input.vehicleCount === undefined && input.description === undefined) {
+      throw new ValidationException('At least one update field is required');
+    }
+    if (
+      input.vehicleCount !== undefined &&
+      input.vehicleCount !== null &&
+      (!Number.isInteger(input.vehicleCount) ||
+        input.vehicleCount < 0 ||
+        input.vehicleCount > 2_147_483_647)
+    ) {
+      throw new ValidationException(
+        'vehicleCount must be null or a non-negative integer',
+      );
+    }
+    if (input.description !== undefined) {
+      ContractEntity.assertNullableText('description', input.description, 500);
+    }
+    if (input.vehicleCount !== undefined) {
+      this._vehicleCount = input.vehicleCount;
+    }
+    if (input.description !== undefined) {
+      this._description = input.description;
+    }
+    this.recordUpdate();
+  }
+
+  terminate(completedOn: Date): void {
+    this.assertNotDeleted();
+    if (this.status !== ContractStatus.ACTIVE) {
+      throw new ContractNotActiveException();
+    }
+    ContractEntity.assertTimestamp('completedOn', completedOn);
+    const checkoutDate = new Date(completedOn);
+    checkoutDate.setUTCHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    if (
+      checkoutDate.getUTCFullYear() < 1 ||
+      checkoutDate.getUTCFullYear() > 9999 ||
+      checkoutDate.getTime() < new Date(this.startDate).getTime() ||
+      checkoutDate.getTime() > today.getTime()
+    ) {
+      throw new ValidationException(
+        'completedOn must be between the contract start date and today',
+      );
+    }
+    this._status = ContractStatus.TERMINATED;
+    this.touch();
+    this.addDomainEvent(
+      new ContractTerminatedEvent(
+        this.id,
+        this.roomId,
+        this.landlordId,
+        checkoutDate,
+      ),
+    );
   }
 
   /** The application verifies the signed artifact in Media before calling this. */
