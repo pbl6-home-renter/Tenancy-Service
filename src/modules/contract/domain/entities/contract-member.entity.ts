@@ -157,8 +157,10 @@ export class ContractMember extends AggregateRoot {
     this.touch();
   }
 
-  leave(leftOn: Date): void {
-    if (this.leftAt !== null) throw new MemberAlreadyLeftException();
+  leave(leftOn: Date, replaceScheduledLeave = false): void {
+    if (this.leftAt !== null && (!replaceScheduledLeave || !this.isActive())) {
+      throw new MemberAlreadyLeftException();
+    }
     try {
       ContractMember.assertDate('leftOn', leftOn);
     } catch {

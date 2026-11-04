@@ -7,6 +7,7 @@ import { UNIT_OF_WORK_DI_TOKEN } from 'shared/application/di-tokens';
 import { IUnitOfWork } from 'shared/application/ports/unit-of-work.port';
 import { CONTRACT_DI_TOKEN } from '../../../contract.di-token';
 import { ContractEntity } from '../../../domain/entities/contract.entity';
+import { ContractStatus } from '../../../domain/enums/contract-status.enum';
 import { ContractForbiddenException } from '../../../domain/exceptions/contract-forbidden.exception';
 import { ContractNotFoundException } from '../../../domain/exceptions/contract-not-found.exception';
 import { ContractRepository } from '../../../domain/repositories/contract.repository';
@@ -39,7 +40,11 @@ export class ContractUpdateCommandHandler implements ICommandHandler<
         throw new ContractForbiddenException();
       }
 
-      contract.updateDraft(command.updates);
+      if (contract.status === ContractStatus.ACTIVE) {
+        contract.updateActive(command.updates);
+      } else {
+        contract.updateDraft(command.updates);
+      }
       await this.contractRepository.save(contract, context);
       await this.outboxRepository.append(
         contract

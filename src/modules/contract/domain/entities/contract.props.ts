@@ -25,5 +25,6 @@ export interface ContractProps extends CreateContractProps {
 }
 
 export interface UpdateContractProps {
-  description: string | null;
+  description?: string | null;
+  vehicleCount?: number | null;
 }

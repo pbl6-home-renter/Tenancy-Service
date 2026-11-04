@@ -30,8 +30,11 @@ import { ContractMemberUpdateCommandHandler } from './application/commands/contr
 import { ContractMemberLeaveCommandHandler } from './application/commands/contract-member-leave/contract-member-leave.command.handler';
 import { ContractMyListQueryHandler } from './application/queries/contract-my-list/contract-my-list.query.handler';
 import { ContractMyController } from './presentation/http/controllers/contract-my.controller';
+import { ContractCheckoutCompleteCommandHandler } from './application/commands/contract-checkout-complete/contract-checkout-complete.command.handler';
+import { ContractSettlementAdapter } from './infrastructure/persistence/contract-settlement.adapter';
 
 const commandHandlers = [
+  ContractCheckoutCompleteCommandHandler,
   ContractMemberAddCommandHandler,
   ContractMemberUpdateCommandHandler,
   ContractMemberLeaveCommandHandler,
@@ -67,6 +70,10 @@ const queryHandlers = [
     ContractMemberController,
   ],
   providers: [
+    {
+      provide: CONTRACT_DI_TOKEN.SETTLEMENT,
+      useClass: ContractSettlementAdapter,
+    },
     {
       provide: CONTRACT_DI_TOKEN.MEMBER_REPOSITORY,
       useClass: TypeOrmContractMemberRepository,

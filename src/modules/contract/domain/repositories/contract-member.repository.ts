@@ -6,6 +6,10 @@ import { Uuid } from 'shared/domain/value-objects/uuid.vo';
 import { ContractMember } from '../entities/contract-member.entity';
 
 export interface ContractMemberRepository extends BaseRepository<ContractMember> {
+  saveMany(
+    members: ContractMember[],
+    context?: TransactionContext,
+  ): Promise<void>;
   findById(
     id: Uuid,
     context?: TransactionContext,

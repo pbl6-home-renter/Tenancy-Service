@@ -29,6 +29,17 @@ export class TypeOrmContractMemberRepository implements ContractMemberRepository
     );
   }
 
+  async saveMany(
+    members: ContractMember[],
+    context?: TransactionContext,
+  ): Promise<void> {
+    if (members.length === 0) return;
+
+    await withTransaction(this.repository, context).save(
+      members.map(ContractMemberMapper.toPersistence),
+    );
+  }
+
   async findById(
     id: Uuid,
     context?: TransactionContext,

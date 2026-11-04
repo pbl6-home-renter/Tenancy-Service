@@ -7,7 +7,7 @@ export class ContractUpdateResponseDto {
   @ApiProperty({ type: String, format: 'uuid' })
   id: Uuid;
 
-  @ApiProperty({ enum: [ContractStatus.DRAFT] })
+  @ApiProperty({ enum: [ContractStatus.DRAFT, ContractStatus.ACTIVE] })
   status: ContractStatus;
 
   @ApiProperty({ type: String, nullable: true, minLength: 1, maxLength: 500 })
