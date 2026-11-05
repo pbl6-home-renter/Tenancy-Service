@@ -12,6 +12,7 @@ import { ContractModule } from 'modules/contract/contract.module';
 import { RatePolicyModule } from 'modules/rate-policy/rate-policy.module';
 import { BillingSettingModule } from 'modules/billing-setting/billing-setting.module';
 import { MeterReadingModule } from 'modules/meter-reading/meter-reading.module';
+import { InvoiceModule } from 'modules/invoice/invoice.module';
 import { AdministrativeUnitModule } from 'modules/administrative-unit/administrative-unit.module';
 
 @Module({
@@ -23,6 +24,7 @@ import { AdministrativeUnitModule } from 'modules/administrative-unit/administra
     RatePolicyModule,
     BillingSettingModule,
     MeterReadingModule,
+    InvoiceModule,
     OutboxModule,
     HealthModule,
     BuildingModule,
