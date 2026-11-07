@@ -14,6 +14,7 @@ import { BillingSettingModule } from 'modules/billing-setting/billing-setting.mo
 import { MeterReadingModule } from 'modules/meter-reading/meter-reading.module';
 import { InvoiceModule } from 'modules/invoice/invoice.module';
 import { AdministrativeUnitModule } from 'modules/administrative-unit/administrative-unit.module';
+import { MediaOwnershipModule } from 'modules/media/media-ownership.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { AdministrativeUnitModule } from 'modules/administrative-unit/administra
     HealthModule,
     BuildingModule,
     AdministrativeUnitModule,
+    MediaOwnershipModule,
   ],
   providers: [
     {

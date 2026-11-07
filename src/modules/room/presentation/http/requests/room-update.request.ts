@@ -4,6 +4,9 @@ import {
   IsEnum,
   IsInt,
   IsNumber,
+  IsArray,
+  IsUUID,
+  ArrayUnique,
   IsObject,
   IsPositive,
   IsString,
@@ -31,6 +34,7 @@ const ROOM_UPDATE_FIELDS = [
   'amenities',
   'maxOccupancy',
   'genderPolicy',
+  'photoMediaIds',
 ] as const satisfies readonly (keyof UpdateRoomProps)[];
 
 @ValidatorConstraint({ name: 'validRoomUpdateRequest', async: false })
@@ -95,6 +99,13 @@ export class RoomUpdateRequest {
   @IsEnum(GenderPolicy)
   genderPolicy?: GenderPolicy;
 
+  @ApiPropertyOptional({ type: [String], format: 'uuid' })
+  @ValidateIf((_request, value) => value !== undefined)
+  @IsArray()
+  @ArrayUnique()
+  @IsUUID('all', { each: true })
+  photoMediaIds?: Uuid[];
+
   @ApiPropertyOptional({ minimum: 0, type: 'number' })
   @ValidateIf((_request, value) => value !== undefined)
   @IsNumber({ allowNaN: false, allowInfinity: false })
@@ -121,6 +132,8 @@ export class RoomUpdateRequest {
       updates.maxOccupancy = request.maxOccupancy;
     if (request.genderPolicy !== undefined)
       updates.genderPolicy = request.genderPolicy;
+    if (request.photoMediaIds !== undefined)
+      updates.photoMediaIds = request.photoMediaIds;
 
     return new RoomUpdateCommand(roomId, landlordId, updates);
   }

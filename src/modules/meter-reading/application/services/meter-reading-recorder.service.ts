@@ -28,7 +28,6 @@ export interface MeterReadingRecordInput {
   currentReading: MeterValue;
   isBaseline: boolean;
   previousReading: MeterValue | null;
-  evidenceMediaId: Uuid;
   buildingId?: Uuid;
 }
 
@@ -42,7 +41,7 @@ export interface BulkMeterReadingRecordInput {
       roomId: Uuid;
       type: MeterType;
       currentReading: MeterValue;
-      evidenceMediaId: Uuid;
+      evidenceMediaIds?: Uuid[];
     }
   >;
 }
@@ -124,7 +123,7 @@ export class MeterReadingRecorder {
       previousReading,
       currentReading: input.currentReading,
       isBaseline: input.isBaseline,
-      evidenceMediaId: input.evidenceMediaId,
+      evidenceMediaIds: [],
     });
     await this.readings.save(reading, context);
     await this.outbox.append(
@@ -202,7 +201,7 @@ export class MeterReadingRecorder {
           previousReading: previous.currentReading,
           currentReading: item.currentReading,
           isBaseline: false,
-          evidenceMediaId: item.evidenceMediaId,
+          evidenceMediaIds: item.evidenceMediaIds ?? [],
         }),
       });
     }

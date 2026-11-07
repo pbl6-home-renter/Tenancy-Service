@@ -13,6 +13,5 @@ export class MeterReadingCreateCommand implements ICommand {
     readonly currentReading: MeterValue,
     readonly isBaseline: boolean,
     readonly previousReading: MeterValue | null,
-    readonly evidenceMediaId: Uuid,
   ) {}
 }

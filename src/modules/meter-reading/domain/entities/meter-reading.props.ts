@@ -12,7 +12,7 @@ export interface MeterReadingRecordProps {
   previousReading: MeterValue;
   currentReading: MeterValue;
   isBaseline: boolean;
-  evidenceMediaId: Uuid;
+  evidenceMediaIds: Uuid[];
 }
 
 export interface MeterReadingProps extends Omit<

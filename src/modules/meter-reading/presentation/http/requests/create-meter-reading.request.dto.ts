@@ -43,11 +43,6 @@ export class CreateMeterReadingRequest {
   @IsBoolean()
   isBaseline: boolean;
 
-  @ApiProperty({ format: 'uuid' })
-  @IsDefined({ message: 'EVIDENCE_REQUIRED' })
-  @IsUuid()
-  evidenceMediaId: Uuid;
-
   static toCommand(
     request: CreateMeterReadingRequest,
     landlordId: Uuid,
@@ -62,7 +57,6 @@ export class CreateMeterReadingRequest {
       request.previousReading === undefined
         ? null
         : MeterValue.create(request.previousReading),
-      request.evidenceMediaId,
     );
   }
 }

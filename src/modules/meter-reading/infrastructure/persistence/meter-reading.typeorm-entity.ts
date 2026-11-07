@@ -61,6 +61,6 @@ export class MeterReadingTypeormEntity extends AbstractEntity {
   @Column({ type: 'boolean', default: false })
   isBaseline: boolean;
 
-  @Column({ type: 'uuid' })
-  evidenceMediaId: Uuid;
+  @Column({ type: 'uuid', array: true, default: () => "'{}'" })
+  evidenceMediaIds: Uuid[];
 }

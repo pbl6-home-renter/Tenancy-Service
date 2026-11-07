@@ -46,17 +46,12 @@ export class BulkMeterReadingItemRequest {
   )
   currentReading: MeterValue;
 
-  @ApiProperty({ format: 'uuid' })
-  @IsDefined({ message: 'EVIDENCE_REQUIRED' })
-  @IsUuid()
-  evidenceMediaId: Uuid;
-
   toInput(): BulkReadingInput {
     return {
       roomId: this.roomId,
       type: this.type,
       currentReading: this.currentReading,
-      evidenceMediaId: this.evidenceMediaId,
+      evidenceMediaIds: [],
     };
   }
 }

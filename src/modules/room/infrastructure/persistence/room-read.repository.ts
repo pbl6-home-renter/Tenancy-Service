@@ -24,7 +24,7 @@ export interface RoomReadRepository {
   findDetailById(id: Uuid): Promise<RoomDetailResult | null>;
 }
 
-type PublicRoomRaw = Omit<RoomPublicSearchResult, 'area' | 'rentPrice'> & {
+type PublicRoomRaw = Omit<RoomPublicSearchResult, 'area' | 'rentPrice' | 'photoUrls'> & {
   area: string | number | null;
   rentPrice: string | number;
 };
@@ -60,6 +60,7 @@ export class TypeOrmRoomReadRepository implements RoomReadRepository {
         'building.id = room.buildingId',
       )
       .select('room.id', 'id')
+      .addSelect('room.photoMediaIds', 'photoMediaIds')
       .addSelect('room.buildingId', 'buildingId')
       .addSelect('room.name', 'name')
       .addSelect('room.area', 'area')
@@ -129,6 +130,7 @@ export class TypeOrmRoomReadRepository implements RoomReadRepository {
     return {
       data: rows.map((row) => ({
         ...row,
+        photoUrls: [],
         area: row.area === null ? null : String(row.area),
         rentPrice: Number(row.rentPrice),
       })),
@@ -163,6 +165,7 @@ export class TypeOrmRoomReadRepository implements RoomReadRepository {
         'building.id = room.buildingId',
       )
       .select('room.id', 'id')
+      .addSelect('room.photoMediaIds', 'photoMediaIds')
       .addSelect('room.buildingId', 'buildingId')
       .addSelect('building.name', 'buildingName')
       .addSelect('building.status', 'buildingStatus')
@@ -186,6 +189,7 @@ export class TypeOrmRoomReadRepository implements RoomReadRepository {
 
     return {
       ...row,
+      photoUrls: [],
       buildingName: row.buildingName,
       area: row.area === null ? null : String(row.area),
       rentPrice: Number(row.rentPrice),

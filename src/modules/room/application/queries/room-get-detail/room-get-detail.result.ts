@@ -5,6 +5,7 @@ import { RoomAmenities } from '../../../domain/value-objects/room-amenities.vo';
 import { RoomPublicSearchResult } from '../room-public-search/room-public-search.result';
 
 export interface RoomDetailResult extends RoomPublicSearchResult {
+  photoUrls: string[];
   buildingName: string;
   buildingStatus: BuildingStatus | null;
   buildingIsDeleted: boolean | null;

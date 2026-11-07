@@ -7,6 +7,7 @@ import { ROOM_DI_TOKEN } from '../../../room.di-token';
 import type { RoomReadRepository } from '../../../infrastructure/persistence/room-read.repository';
 import { RoomDetailResult } from './room-get-detail.result';
 import { RoomGetDetailQuery } from './room-get-detail.query';
+import { MEDIA_LOOKUP_PORT, MediaLookupPort } from 'modules/media/application/ports/media-lookup.port';
 
 @QueryHandler(RoomGetDetailQuery)
 export class RoomGetDetailQueryHandler implements IQueryHandler<
@@ -16,6 +17,8 @@ export class RoomGetDetailQueryHandler implements IQueryHandler<
   constructor(
     @Inject(ROOM_DI_TOKEN.READ_REPOSITORY)
     private readonly roomReadRepository: RoomReadRepository,
+    @Inject(MEDIA_LOOKUP_PORT)
+    private readonly mediaLookup: MediaLookupPort,
   ) {}
 
   async execute(query: RoomGetDetailQuery): Promise<RoomDetailResult> {
@@ -45,6 +48,11 @@ export class RoomGetDetailQueryHandler implements IQueryHandler<
       throw new RoomNotFoundException(query.roomId);
     }
 
-    return room;
+    const media = await this.mediaLookup.findMediaByIds(room.photoMediaIds);
+    const urlById = new Map(media.map((item) => [item.id, item.url ?? `/api/v1/media/${item.id}`]));
+    return {
+      ...room,
+      photoUrls: room.photoMediaIds.map((id) => urlById.get(id) ?? `/api/v1/media/${id}`),
+    };
   }
 }

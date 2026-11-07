@@ -11,6 +11,8 @@ import { OUTBOX_DI_TOKEN } from 'modules/outbox/outbox.di-token';
 import { OutboxRepository } from 'modules/outbox/domain/repositories/outbox.repository';
 import { OutboxMessage } from 'modules/outbox/domain/entities/outbox-message.entity';
 import { RoomUpdateCommand } from './room-update.command';
+import { MEDIA_LOOKUP_PORT, MediaLookupPort } from 'modules/media/application/ports/media-lookup.port';
+import { ValidationException } from 'shared/domain/exceptions/validation.exception';
 
 @CommandHandler(RoomUpdateCommand)
 export class RoomUpdateCommandHandler implements ICommandHandler<
@@ -24,9 +26,28 @@ export class RoomUpdateCommandHandler implements ICommandHandler<
     private readonly unitOfWork: IUnitOfWork,
     @Inject(OUTBOX_DI_TOKEN.REPOSITORY)
     private readonly outboxRepository: OutboxRepository,
+    @Inject(MEDIA_LOOKUP_PORT)
+    private readonly mediaLookup: MediaLookupPort,
   ) {}
 
-  execute(command: RoomUpdateCommand): Promise<Room> {
+  async execute(command: RoomUpdateCommand): Promise<Room> {
+    if (command.updates.photoMediaIds !== undefined) {
+      const media = await this.mediaLookup.findMediaByIds(command.updates.photoMediaIds);
+      const validIds = new Set(
+        media
+          .filter((item) =>
+            item.ownerType === 'room' &&
+            item.ownerId === command.roomId &&
+            item.status === 'uploaded' &&
+            ['cover_photo', 'gallery_photo'].includes(item.purpose),
+          )
+          .map((item) => item.id),
+      );
+      if (validIds.size !== new Set(command.updates.photoMediaIds).size) {
+        throw new ValidationException('photoMediaIds must be uploaded room photos');
+      }
+    }
+
     return this.unitOfWork.run(async (context) => {
       const room = await this.roomRepository.findByIdForUpdate(
         command.roomId,

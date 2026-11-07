@@ -96,4 +96,7 @@ export class RoomTypeormEntity extends AbstractEntity {
     default: RoomStatus.AVAILABLE,
   })
   status: RoomStatus;
+
+  @Column({ type: 'uuid', array: true, default: () => "'{}'::uuid[]" })
+  photoMediaIds: Uuid[];
 }

@@ -8,7 +8,7 @@ export interface BulkReadingInput {
   roomId: Uuid;
   type: MeterType;
   currentReading: MeterValue;
-  evidenceMediaId: Uuid;
+  evidenceMediaIds: Uuid[];
 }
 
 export class MeterReadingBulkCreateCommand implements ICommand {

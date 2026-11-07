@@ -19,6 +19,7 @@ export interface ContractProps extends CreateContractProps {
   status: ContractStatus;
   description: string | null;
   activatedAt: Date | null;
+  signedContractMediaIds?: Uuid[];
   createdAt: Date;
   updatedAt: Date;
   isDeleted: boolean;

@@ -8,6 +8,9 @@ export class RoomDetailResponseDto {
   @ApiProperty({ format: 'uuid' })
   id: string;
 
+  @ApiProperty({ type: [String], format: 'uuid' })
+  photoMediaIds: string[];
+
   @ApiProperty({ format: 'uuid' })
   buildingId: string;
 
@@ -84,6 +87,7 @@ export class RoomDetailResponseDto {
   static fromReadModel(room: RoomDetailResult): RoomDetailResponseDto {
     const response = new RoomDetailResponseDto();
     response.id = room.id;
+    response.photoMediaIds = room.photoMediaIds;
     response.buildingId = room.buildingId;
     response.buildingName = room.buildingName;
     response.name = room.name;
@@ -96,6 +100,7 @@ export class RoomDetailResponseDto {
     response.maxOccupancy = room.maxOccupancy;
     response.genderPolicy = room.genderPolicy;
     response.amenities = room.amenities;
+    response.photoUrls = room.photoUrls;
     // TODO(identity): Resolve landlord name and phone when Identity exposes an internal lookup.
     // TODO(media): Resolve uploaded room photo IDs to public URLs.
     // TODO(contract): Populate the active contract and current contract members.

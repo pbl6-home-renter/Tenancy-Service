@@ -13,7 +13,7 @@ export class MeterReadingMapper {
       previousReading: raw.previousReading,
       currentReading: raw.currentReading,
       isBaseline: raw.isBaseline,
-      evidenceMediaId: raw.evidenceMediaId,
+      evidenceMediaIds: raw.evidenceMediaIds ?? [],
       createdAt: raw.createdAt,
       updatedAt: raw.updatedAt,
       isDeleted: raw.isDeleted,
@@ -31,7 +31,7 @@ export class MeterReadingMapper {
     raw.previousReading = reading.previousReading.value;
     raw.currentReading = reading.currentReading.value;
     raw.isBaseline = reading.isBaseline;
-    raw.evidenceMediaId = reading.evidenceMediaId;
+    raw.evidenceMediaIds = reading.evidenceMediaIds;
     raw.createdAt = reading.createdAt;
     raw.updatedAt = reading.updatedAt;
     raw.isDeleted = reading.isDeleted;

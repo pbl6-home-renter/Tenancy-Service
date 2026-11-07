@@ -20,6 +20,7 @@ export class RoomMapper {
       createdAt: raw.createdAt,
       updatedAt: raw.updatedAt,
       isDeleted: raw.isDeleted,
+      photoMediaIds: raw.photoMediaIds ?? [],
     });
   }
 
@@ -41,6 +42,7 @@ export class RoomMapper {
     raw.createdAt = room.createdAt;
     raw.updatedAt = room.updatedAt;
     raw.isDeleted = room.isDeleted;
+    raw.photoMediaIds = room.photoMediaIds;
     return raw;
   }
 }

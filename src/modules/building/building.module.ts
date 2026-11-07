@@ -23,6 +23,8 @@ import { AdminBuildingController } from './presentation/http/controllers/admin-b
 import { InternalUserService } from './infrastructure/services/internal-user.service';
 import { BuildingSearchPublicQueryHandler } from './application/queries/building-search-public/building-search-public.query.handler';
 import { BuildingGetPublicQueryHandler } from './application/queries/building-get-public/building-get-public.query.handler';
+import { MEDIA_LOOKUP_PORT } from 'modules/media/application/ports/media-lookup.port';
+import { IdentityMediaLookupService } from 'modules/media/infrastructure/services/identity-media-lookup.service';
 
 const commandHandlers = [
   BuildingApproveCommandHandler,
@@ -56,6 +58,7 @@ const queryHandlers = [
   providers: [
     ...commandHandlers,
     ...queryHandlers,
+    { provide: MEDIA_LOOKUP_PORT, useClass: IdentityMediaLookupService },
     {
       provide: BUILDING_DI_TOKEN.REPOSITORY,
       useClass: TypeOrmBuildingRepository,

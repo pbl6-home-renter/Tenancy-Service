@@ -5,6 +5,9 @@ import {
   HttpCode,
   HttpStatus,
   Post,
+  Patch,
+  Param,
+  ParseUUIDPipe,
   Query,
 } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
@@ -28,6 +31,14 @@ import { BulkCreateMeterReadingsRequest } from '../requests/bulk-create-meter-re
 import { MeterReadingListRequest } from '../requests/meter-reading-list.request.dto';
 import { MeterReadingResponseDto } from '../responses/meter-reading.response.dto';
 import { BulkMeterReadingResponseDto } from '../responses/bulk-meter-reading.response.dto';
+import { Inject } from '@nestjs/common';
+import {
+  MEDIA_LOOKUP_PORT,
+  MediaLookupPort,
+} from 'modules/media/application/ports/media-lookup.port';
+import { Uuid } from 'shared/domain/value-objects/uuid.vo';
+import { MeterReadingEvidenceAttachCommand } from '../../../application/commands/meter-reading-evidence-attach/meter-reading-evidence-attach.command';
+import { MeterReadingEvidenceAttachRequestDto } from '../requests/meter-reading-evidence-attach.request.dto';
 
 @ApiTags('MeterReading')
 @ApiBearerAuth()
@@ -37,6 +48,7 @@ export class MeterReadingController {
   constructor(
     private readonly commands: CommandBus,
     private readonly queries: QueryBus,
+    @Inject(MEDIA_LOOKUP_PORT) private readonly media: MediaLookupPort,
   ) {}
 
   @Post('bulk')
@@ -82,7 +94,37 @@ export class MeterReadingController {
       MeterReadingCreateCommand,
       MeterReadingEntity
     >(CreateMeterReadingRequest.toCommand(request, user.id));
-    return MeterReadingResponseDto.fromDomain(reading);
+    return this.withMediaUrl(MeterReadingResponseDto.fromDomain(reading));
+  }
+
+  @Patch(':readingId/evidence')
+  @HttpCode(HttpStatus.OK)
+  @ResponseCode(Code.METER_READING_UPDATED)
+  @ApiOperation({
+    operationId: 'patchMeterReadingEvidence',
+    summary: 'Attach uploaded evidence to a meter reading',
+  })
+  @ApiSuccessResponse({
+    status: HttpStatus.OK,
+    code: Code.METER_READING_UPDATED,
+    dataDto: MeterReadingResponseDto,
+  })
+  async attachEvidence(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('readingId', ParseUUIDPipe) readingId: Uuid,
+    @Body() request: MeterReadingEvidenceAttachRequestDto,
+  ): Promise<MeterReadingResponseDto> {
+    const reading = await this.commands.execute<
+      MeterReadingEvidenceAttachCommand,
+      MeterReadingEntity
+    >(
+      new MeterReadingEvidenceAttachCommand(
+        readingId,
+        user.id,
+        request.evidenceMediaIds,
+      ),
+    );
+    return this.withMediaUrl(MeterReadingResponseDto.fromDomain(reading));
   }
 
   @Get()
@@ -100,9 +142,26 @@ export class MeterReadingController {
       MeterReadingListQuery,
       PaginatedResult<MeterReadingEntity>
     >(new MeterReadingListQuery(user.id, request));
+    const data = result.data.map(MeterReadingResponseDto.fromDomain);
+    const mediaIds = data.flatMap((item) => item.evidenceMediaIds);
+    const media = await this.media.findMediaByIds(mediaIds as Uuid[]);
+    const urls = new Map<string, string>(
+      media.map((item) => [item.id, item.url ?? `/api/v1/media/${item.id}`]),
+    );
+    for (const item of data)
+      item.evidenceMediaUrls = item.evidenceMediaIds.map(
+        (id) => urls.get(id) ?? `/api/v1/media/${id}`,
+      );
     return PaginatedResponseDto.create({
-      data: result.data.map(MeterReadingResponseDto.fromDomain),
+      data,
       pagination: result.pagination,
     });
+  }
+
+  private withMediaUrl(dto: MeterReadingResponseDto): MeterReadingResponseDto {
+    dto.evidenceMediaUrls = dto.evidenceMediaIds.map(
+      (id) => `/api/v1/media/${id}`,
+    );
+    return dto;
   }
 }

@@ -6,6 +6,12 @@ export class RoomPublicListResponseDto {
   @ApiProperty({ format: 'uuid' })
   id: string;
 
+  @ApiProperty({ type: [String], format: 'uuid' })
+  photoMediaIds: string[];
+
+  @ApiProperty({ type: [String], description: 'Identity media URLs for display.' })
+  photoUrls: string[];
+
   @ApiProperty({ format: 'uuid' })
   buildingId: string;
 
@@ -35,6 +41,8 @@ export class RoomPublicListResponseDto {
   ): RoomPublicListResponseDto {
     const response = new RoomPublicListResponseDto();
     response.id = room.id;
+    response.photoMediaIds = room.photoMediaIds;
+    response.photoUrls = room.photoUrls;
     response.buildingId = room.buildingId;
     response.name = room.name;
     response.area = room.area;

@@ -34,12 +34,20 @@ import {
 } from '../requests/building-list-mine.query.request.dto';
 import { MyBuildingDetailResponseDto } from '../responses/my-building-detail.response.dto';
 import { MyBuildingListResponseDto } from '../responses/my-building-list.response.dto';
+import { Inject } from '@nestjs/common';
+import {
+  MEDIA_LOOKUP_PORT,
+  MediaLookupPort,
+} from 'modules/media/application/ports/media-lookup.port';
 
 @ApiTags('Buildings')
 @ApiBearerAuth()
 @Controller('me/buildings')
 export class MyBuildingController {
-  constructor(private readonly queryBus: QueryBus) {}
+  constructor(
+    private readonly queryBus: QueryBus,
+    @Inject(MEDIA_LOOKUP_PORT) private readonly media: MediaLookupPort,
+  ) {}
 
   @Get()
   @Roles(UserRole.LANDLORD)
@@ -88,6 +96,16 @@ export class MyBuildingController {
       BuildingGetMineQuery,
       BuildingEntity
     >(new BuildingGetMineQuery(user.id, buildingId));
-    return MyBuildingDetailResponseDto.fromDomain(building);
+    const response = MyBuildingDetailResponseDto.fromDomain(building);
+    const media = await this.media.findMediaByOwner('building', building.id);
+    const certificates = media.filter(
+      (item) =>
+        item.purpose === 'ownership_proof' && item.status === 'uploaded',
+    );
+    response.ownershipCertificateMediaIds = certificates.map((item) => item.id);
+    response.ownershipCertificateUrls = certificates.map(
+      (item) => item.url ?? `/api/v1/media/${item.id}`,
+    );
+    return response;
   }
 }

@@ -30,8 +30,11 @@ export class MeterReadingResponseDto {
   @ApiProperty()
   isBaseline: boolean;
 
-  @ApiProperty({ format: 'uuid' })
-  evidenceMediaId: string;
+  @ApiProperty({ type: [String], format: 'uuid' })
+  evidenceMediaIds: string[];
+
+  @ApiProperty({ type: [String] })
+  evidenceMediaUrls: string[];
 
   @ApiProperty({ format: 'date-time' })
   createdAt: Date;
@@ -47,7 +50,10 @@ export class MeterReadingResponseDto {
     response.currentReading = reading.currentReading.value;
     response.consumption = reading.consumption;
     response.isBaseline = reading.isBaseline;
-    response.evidenceMediaId = reading.evidenceMediaId;
+    response.evidenceMediaIds = reading.evidenceMediaIds;
+    response.evidenceMediaUrls = reading.evidenceMediaIds.map(
+      (id) => `/api/v1/media/${id}`,
+    );
     response.createdAt = reading.createdAt;
     return response;
   }

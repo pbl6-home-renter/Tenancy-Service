@@ -12,6 +12,7 @@ import { INTERNAL_ROUTES } from '../constants/internal-routes.constant';
 
 @Injectable()
 export class IdentityMediaLookupAdapter implements MediaLookupPort {
+  private static readonly LOOKUP_BATCH_SIZE = 50;
   constructor(
     @Inject(INTERNAL_HTTP_DI_TOKEN.CLIENT)
     private readonly client: IInternalHttpClient,
@@ -32,5 +33,27 @@ export class IdentityMediaLookupAdapter implements MediaLookupPort {
       }
       throw error;
     }
+  }
+
+  async findMediaByIds(ids: readonly Uuid[]): Promise<MediaInfo[]> {
+    const uniqueIds = [...new Set(ids)];
+    const result: MediaInfo[] = [];
+    for (
+      let index = 0;
+      index < uniqueIds.length;
+      index += IdentityMediaLookupAdapter.LOOKUP_BATCH_SIZE
+    ) {
+      const batch = uniqueIds.slice(
+        index,
+        index + IdentityMediaLookupAdapter.LOOKUP_BATCH_SIZE,
+      );
+      const items = await this.client.get<MediaInfo[]>(
+        PeerService.IDENTITY,
+        INTERNAL_ROUTES.IDENTITY.MEDIA,
+        { query: { ids: batch.join(',') } },
+      );
+      result.push(...items);
+    }
+    return result;
   }
 }

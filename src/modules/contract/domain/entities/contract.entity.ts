@@ -6,6 +6,7 @@ import {
   Uuid,
 } from 'shared/domain/value-objects/uuid.vo';
 import { ContractStatus } from '../enums/contract-status.enum';
+import { MediaReference } from 'modules/media/domain/value-objects/media-reference.vo';
 import { ContractCreatedEvent } from '../events/contract-created.event';
 import { ContractUpdatedEvent } from '../events/contract-updated.event';
 import { ContractActivatedEvent } from '../events/contract-activated.event';
@@ -37,6 +38,7 @@ export class ContractEntity extends AggregateRoot {
     private _status: ContractStatus,
     private _description: string | null,
     private _activatedAt: Date | null,
+    private _signedContractMedia: MediaReference[],
     createdAt: Date,
     updatedAt: Date,
     isDeleted: boolean,
@@ -52,6 +54,7 @@ export class ContractEntity extends AggregateRoot {
       status: ContractStatus.DRAFT,
       description: null,
       activatedAt: null,
+      signedContractMediaIds: [],
       createdAt: now,
       updatedAt: now,
       isDeleted: false,
@@ -95,6 +98,7 @@ export class ContractEntity extends AggregateRoot {
       props.status,
       props.description,
       props.activatedAt === null ? null : new Date(props.activatedAt),
+      (props.signedContractMediaIds ?? []).map(MediaReference.create),
       new Date(props.createdAt),
       new Date(props.updatedAt),
       props.isDeleted,
@@ -151,6 +155,10 @@ export class ContractEntity extends AggregateRoot {
 
   get activatedAt(): Date | null {
     return this._activatedAt === null ? null : new Date(this._activatedAt);
+  }
+
+  get signedContractMediaIds(): Uuid[] {
+    return this._signedContractMedia.map((reference) => reference.mediaId);
   }
 
   updateDraft(input: UpdateContractProps): void {
@@ -237,17 +245,20 @@ export class ContractEntity extends AggregateRoot {
   }
 
   /** The application verifies the signed artifact in Media before calling this. */
-  activate(signedMediaId: Uuid, now: Date): void {
+  activate(signedMediaIds: Uuid[], now: Date): void {
     this.assertNotDeleted();
     if (
       ![ContractStatus.DRAFT, ContractStatus.SIGNED].includes(this.status) ||
-      !isValidUuid(signedMediaId)
+      signedMediaIds.length === 0 ||
+      !signedMediaIds.every(isValidUuid) ||
+      new Set(signedMediaIds).size !== signedMediaIds.length
     ) {
       throw new ContractNotReadyException(this.id);
     }
     ContractEntity.assertTimestamp('activation time', now);
     this._status = ContractStatus.ACTIVE;
     this._activatedAt = new Date(now);
+    this._signedContractMedia = signedMediaIds.map(MediaReference.create);
     this.touch();
     this.addDomainEvent(
       new ContractActivatedEvent(

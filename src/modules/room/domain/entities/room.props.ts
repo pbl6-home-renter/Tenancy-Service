@@ -15,6 +15,7 @@ export interface RoomFields {
   genderPolicy: GenderPolicy;
   rentPrice: number;
   depositAmount: number;
+  photoMediaIds?: Uuid[];
 }
 
 export interface CreateRoomProps extends Omit<
@@ -25,6 +26,7 @@ export interface CreateRoomProps extends Omit<
   | 'amenities'
   | 'maxOccupancy'
   | 'genderPolicy'
+  | 'photoMediaIds'
 > {
   id?: Uuid;
   floorNumber?: number | null;
@@ -33,6 +35,7 @@ export interface CreateRoomProps extends Omit<
   amenities?: RoomAmenities;
   maxOccupancy?: number | null;
   genderPolicy?: GenderPolicy;
+  photoMediaIds?: Uuid[];
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -56,5 +59,6 @@ export type UpdateRoomProps = Partial<
     | 'maxOccupancy'
     | 'genderPolicy'
     | 'rentPrice'
+    | 'photoMediaIds'
   >
 >;

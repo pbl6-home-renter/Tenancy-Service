@@ -40,16 +40,23 @@ export class ContractActivateCommandHandler implements ICommandHandler<
   ) {}
 
   async execute(command: ContractActivateCommand): Promise<ContractEntity> {
-    const media = await this.mediaLookup.findMedia(
-      command.signedContractMediaId,
+    const media = await this.mediaLookup.findMediaByIds(
+      command.signedContractMediaIds,
+    );
+    const validIds = new Set(
+      media
+        .filter(
+          (item) =>
+            item.ownerType === 'contract' &&
+            item.ownerId === command.contractId &&
+            item.purpose === 'contract_signed' &&
+            item.status === 'uploaded',
+        )
+        .map((item) => item.id),
     );
     if (
-      !media ||
-      media.id !== command.signedContractMediaId ||
-      media.ownerType !== 'contract' ||
-      media.ownerId !== command.contractId ||
-      media.purpose !== 'contract_signed' ||
-      media.status !== 'uploaded'
+      command.signedContractMediaIds.length === 0 ||
+      validIds.size !== new Set(command.signedContractMediaIds).size
     ) {
       throw new SignedFileMissingException();
     }
@@ -71,7 +78,7 @@ export class ContractActivateCommandHandler implements ICommandHandler<
       if (!room) throw new RoomNotFoundException(contract.roomId);
 
       const activatedAt = new Date();
-      contract.activate(command.signedContractMediaId, activatedAt);
+      contract.activate([...command.signedContractMediaIds], activatedAt);
       room.occupyByContract();
       const representative = ContractMember.add({
         contractId: contract.id,

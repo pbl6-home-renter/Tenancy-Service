@@ -3,6 +3,8 @@ import { GenderPolicy } from '../../../domain/enums/gender-policy.enum';
 
 export interface RoomPublicSearchResult {
   id: Uuid;
+  photoMediaIds: Uuid[];
+  photoUrls: string[];
   buildingId: Uuid;
   name: string;
   area: string | null;

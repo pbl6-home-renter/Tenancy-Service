@@ -45,6 +45,9 @@ export class MyBuildingDetailResponseDto {
   })
   ownershipCertificateUrls: string[];
 
+  @ApiProperty({ type: [String], format: 'uuid' })
+  ownershipCertificateMediaIds: string[];
+
   @ApiProperty()
   vietQrConfigured: boolean;
 
@@ -90,6 +93,7 @@ export class MyBuildingDetailResponseDto {
     dto.amenities = null;
     // TODO(media): Resolve ownership certificates after the media integration.
     dto.ownershipCertificateUrls = [];
+    dto.ownershipCertificateMediaIds = [];
     // TODO(billing): Read VietQR configuration and service rate policies.
     dto.vietQrConfigured = false;
     dto.ratePolicies = [];

@@ -15,6 +15,9 @@ import { RoomCreateCommandHandler } from './application/commands/room-create/roo
 import { TypeOrmRoomReadRepository } from './infrastructure/persistence/room-read.repository';
 import { RoomPublicSearchQueryHandler } from './application/queries/room-public-search/room-public-search.query.handler';
 import { RoomGetDetailQueryHandler } from './application/queries/room-get-detail/room-get-detail.query.handler';
+import { InternalHttpModule } from 'shared/infrastructure/http/internal-http.module';
+import { MEDIA_LOOKUP_PORT } from 'modules/media/application/ports/media-lookup.port';
+import { IdentityMediaLookupService } from 'modules/media/infrastructure/services/identity-media-lookup.service';
 
 const commandHandlers = [
   RoomCreateCommandHandler,
@@ -34,6 +37,7 @@ const queryHandlers = [
     TypeOrmModule.forFeature([RoomTypeormEntity]),
     BuildingModule,
     OutboxModule,
+    InternalHttpModule,
   ],
   controllers: [RoomController],
   providers: [
@@ -45,6 +49,7 @@ const queryHandlers = [
       provide: ROOM_DI_TOKEN.READ_REPOSITORY,
       useClass: TypeOrmRoomReadRepository,
     },
+    { provide: MEDIA_LOOKUP_PORT, useClass: IdentityMediaLookupService },
     ...commandHandlers,
     ...queryHandlers,
   ],

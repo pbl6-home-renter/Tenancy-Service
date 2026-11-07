@@ -40,6 +40,30 @@ export class ContractDetailResponseDto {
   @ApiProperty({ type: String, nullable: true, minLength: 1, maxLength: 500 })
   description: string | null;
 
+  @ApiProperty({ type: [String], format: 'uuid' })
+  signedContractMediaIds: Uuid[];
+
+  @ApiProperty({
+    type: [String],
+    description: 'Authenticated Identity media paths.',
+  })
+  signedContractMediaUrls: string[];
+
+  @ApiProperty({
+    type: String,
+    format: 'uuid',
+    nullable: true,
+    deprecated: true,
+  })
+  signedContractMediaId: Uuid | null;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description: 'Authenticated Identity media path.',
+  })
+  signedContractMediaUrl: string | null;
+
   static fromDomain(contract: ContractEntity): ContractDetailResponseDto {
     const response = new ContractDetailResponseDto();
     response.id = contract.id;
@@ -54,6 +78,14 @@ export class ContractDetailResponseDto {
     response.endDate = contract.endDate;
     response.vehicleCount = contract.vehicleCount;
     response.description = contract.description;
+    response.signedContractMediaIds = contract.signedContractMediaIds;
+    response.signedContractMediaUrls = contract.signedContractMediaIds.map(
+      (id) => `/api/v1/media/${id}`,
+    );
+    response.signedContractMediaId = contract.signedContractMediaIds[0] ?? null;
+    response.signedContractMediaUrl = response.signedContractMediaId
+      ? `/api/v1/media/${response.signedContractMediaId}`
+      : null;
     return response;
   }
 }

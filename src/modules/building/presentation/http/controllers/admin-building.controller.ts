@@ -33,12 +33,20 @@ import {
 } from '../requests/building-list-for-admin.query.request.dto';
 import { AdminBuildingDetailResponseDto } from '../responses/admin-building-detail.response.dto';
 import { AdminBuildingListResponseDto } from '../responses/admin-building-list.response.dto';
+import { Inject } from '@nestjs/common';
+import {
+  MEDIA_LOOKUP_PORT,
+  MediaLookupPort,
+} from 'modules/media/application/ports/media-lookup.port';
 
 @ApiTags('Buildings')
 @ApiBearerAuth()
 @Controller('admin/buildings')
 export class AdminBuildingController {
-  constructor(private readonly queryBus: QueryBus) {}
+  constructor(
+    private readonly queryBus: QueryBus,
+    @Inject(MEDIA_LOOKUP_PORT) private readonly media: MediaLookupPort,
+  ) {}
 
   @Get()
   @Roles(UserRole.ADMIN)
@@ -88,6 +96,17 @@ export class AdminBuildingController {
       BuildingGetAdminQuery,
       BuildingGetAdminResult
     >(new BuildingGetAdminQuery(buildingId));
-    return AdminBuildingDetailResponseDto.fromReadModel(result);
+    const response = AdminBuildingDetailResponseDto.fromReadModel(result);
+    const media = await this.media.findMediaByOwner('building', buildingId);
+    response.ownershipDocuments = media
+      .filter(
+        (item) =>
+          item.purpose === 'ownership_proof' && item.status === 'uploaded',
+      )
+      .map((item) => ({
+        id: item.id,
+        url: item.url ?? `/api/v1/media/${item.id}`,
+      }));
+    return response;
   }
 }

@@ -8,9 +8,9 @@ import {
 import { MeterType } from '../enums/meter-type.enum';
 import { MeterReadingRecordedEvent } from '../events/meter-reading-recorded.event';
 import { CurrentReadingInvalidException } from '../exceptions/current-reading-invalid.exception';
-import { EvidenceRequiredException } from '../exceptions/evidence-required.exception';
 import { MeterValue } from '../value-objects/meter-value.vo';
 import { ReadingPeriod } from '../value-objects/reading-period.vo';
+import { MediaReference } from 'modules/media/domain/value-objects/media-reference.vo';
 import {
   MeterReadingProps,
   MeterReadingRecordProps,
@@ -27,7 +27,7 @@ export class MeterReadingEntity extends AggregateRoot {
     readonly previousReading: MeterValue,
     readonly currentReading: MeterValue,
     readonly isBaseline: boolean,
-    readonly evidenceMediaId: Uuid,
+    private _evidenceMedia: MediaReference[],
     createdAt: Date,
     updatedAt: Date,
     isDeleted: boolean,
@@ -69,8 +69,15 @@ export class MeterReadingEntity extends AggregateRoot {
     ) {
       throw new ValidationException('Meter reading IDs must be UUIDs');
     }
-    if (!isValidUuid(props.evidenceMediaId))
-      throw new EvidenceRequiredException();
+    if (
+      !Array.isArray(props.evidenceMediaIds) ||
+      !props.evidenceMediaIds.every(isValidUuid)
+    )
+      throw new ValidationException(
+        'evidenceMediaIds must contain valid UUIDs',
+      );
+    if (new Set(props.evidenceMediaIds).size !== props.evidenceMediaIds.length)
+      throw new ValidationException('evidenceMediaIds must be unique');
     if (!Object.values(MeterType).includes(props.type)) {
       throw new ValidationException('Invalid meter type');
     }
@@ -92,7 +99,7 @@ export class MeterReadingEntity extends AggregateRoot {
       previous,
       current,
       props.isBaseline,
-      props.evidenceMediaId,
+      props.evidenceMediaIds.map(MediaReference.create),
       new Date(props.createdAt),
       new Date(props.updatedAt),
       props.isDeleted,
@@ -101,5 +108,20 @@ export class MeterReadingEntity extends AggregateRoot {
 
   get consumption(): string {
     return MeterValue.difference(this.currentReading, this.previousReading);
+  }
+
+  get evidenceMediaIds(): Uuid[] {
+    return this._evidenceMedia.map((reference) => reference.mediaId);
+  }
+
+  attachEvidence(mediaIds: Uuid[]): void {
+    if (
+      !mediaIds.every(isValidUuid) ||
+      new Set(mediaIds).size !== mediaIds.length
+    )
+      throw new ValidationException(
+        'evidenceMediaIds must be unique valid UUIDs',
+      );
+    this._evidenceMedia = mediaIds.map(MediaReference.create);
   }
 }

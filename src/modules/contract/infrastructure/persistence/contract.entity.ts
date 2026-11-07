@@ -89,4 +89,7 @@ export class ContractTypeormEntity extends AbstractEntity {
 
   @Column({ type: 'timestamptz', nullable: true })
   activatedAt: Date | null;
+
+  @Column({ type: 'uuid', array: true, default: () => "'{}'" })
+  signedContractMediaIds: Uuid[];
 }

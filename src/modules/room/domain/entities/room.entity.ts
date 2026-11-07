@@ -23,6 +23,7 @@ import {
 } from '../value-objects/room-amenities.vo';
 import { InvalidRoomTransitionException } from '../exceptions/invalid-room-transition.exception';
 import { DepositAmount } from '../value-objects/deposit-amount.vo';
+import { MediaReference } from 'modules/media/domain/value-objects/media-reference.vo';
 
 export class Room extends AggregateRoot {
   private _floorNumber: number | null;
@@ -35,6 +36,7 @@ export class Room extends AggregateRoot {
   private _rentPrice: number;
   private readonly _depositAmount: DepositAmount;
   private _status: RoomStatus;
+  private _photoMedia: MediaReference[];
 
   private constructor(
     id: Uuid,
@@ -53,6 +55,7 @@ export class Room extends AggregateRoot {
     createdAt: Date,
     updatedAt: Date,
     isDeleted: boolean,
+    photoMedia: MediaReference[] = [],
   ) {
     super(id, createdAt, updatedAt, isDeleted);
     this._floorNumber = floorNumber;
@@ -65,6 +68,7 @@ export class Room extends AggregateRoot {
     this._rentPrice = rentPrice;
     this._depositAmount = depositAmount;
     this._status = status;
+    this._photoMedia = [...photoMedia];
   }
 
   static create(props: CreateRoomProps): Room {
@@ -86,6 +90,7 @@ export class Room extends AggregateRoot {
       props.createdAt ?? now,
       props.updatedAt ?? now,
       false,
+      (props.photoMediaIds ?? []).map((id) => MediaReference.create(id)),
     );
     room.assertValid();
     room.addDomainEvent(new RoomCreatedEvent(room.id, room.currentFields()));
@@ -110,6 +115,7 @@ export class Room extends AggregateRoot {
       props.createdAt,
       props.updatedAt,
       props.isDeleted,
+      (props.photoMediaIds ?? []).map((id) => MediaReference.create(id)),
     );
     room.assertValid();
     return room;
@@ -163,6 +169,10 @@ export class Room extends AggregateRoot {
     return this._status;
   }
 
+  get photoMediaIds(): Uuid[] {
+    return this._photoMedia.map((media) => media.mediaId);
+  }
+
   update(props: UpdateRoomProps): void {
     this.assertNotDeleted();
 
@@ -184,6 +194,12 @@ export class Room extends AggregateRoot {
     this._maxOccupancy = next.maxOccupancy;
     this._genderPolicy = next.genderPolicy;
     this._rentPrice = next.rentPrice;
+    if (props.photoMediaIds !== undefined) {
+      if (new Set(props.photoMediaIds).size !== props.photoMediaIds.length) {
+        throw new InvalidRoomException('photoMediaIds must be unique');
+      }
+      this._photoMedia = props.photoMediaIds.map((id) => MediaReference.create(id));
+    }
     this.touch();
 
     this.addDomainEvent(
@@ -362,6 +378,7 @@ export class Room extends AggregateRoot {
       genderPolicy: this._genderPolicy,
       rentPrice: this._rentPrice,
       depositAmount: this._depositAmount.value,
+      photoMediaIds: this.photoMediaIds,
     };
   }
 }

@@ -10,4 +10,5 @@ export interface MediaInfo {
 
 export interface MediaLookupPort {
   findMedia(id: Uuid): Promise<MediaInfo | null>;
+  findMediaByIds(ids: readonly Uuid[]): Promise<MediaInfo[]>;
 }

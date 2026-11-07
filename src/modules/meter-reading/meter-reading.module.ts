@@ -12,6 +12,10 @@ import { TypeOrmMeterReadingRepository } from './infrastructure/persistence/mete
 import { MeterReadingTypeormEntity } from './infrastructure/persistence/meter-reading.typeorm-entity';
 import { METER_READING_DI_TOKEN } from './meter-reading.di-token';
 import { MeterReadingController } from './presentation/http/controllers/meter-reading.controller';
+import { InternalHttpModule } from 'shared/infrastructure/http/internal-http.module';
+import { MEDIA_LOOKUP_PORT } from 'modules/media/application/ports/media-lookup.port';
+import { IdentityMediaLookupService } from 'modules/media/infrastructure/services/identity-media-lookup.service';
+import { MeterReadingEvidenceAttachCommandHandler } from './application/commands/meter-reading-evidence-attach/meter-reading-evidence-attach.command.handler';
 
 @Module({
   imports: [
@@ -20,13 +24,16 @@ import { MeterReadingController } from './presentation/http/controllers/meter-re
     RoomModule,
     BuildingModule,
     OutboxModule,
+    InternalHttpModule,
   ],
   controllers: [MeterReadingController],
   providers: [
     MeterReadingCreateCommandHandler,
+    MeterReadingEvidenceAttachCommandHandler,
     MeterReadingBulkCreateCommandHandler,
     MeterReadingRecorder,
     MeterReadingListQueryHandler,
+    { provide: MEDIA_LOOKUP_PORT, useClass: IdentityMediaLookupService },
     TypeOrmMeterReadingRepository,
     {
       provide: METER_READING_DI_TOKEN.REPOSITORY,
