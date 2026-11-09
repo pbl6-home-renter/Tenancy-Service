@@ -4,10 +4,10 @@ import {
   Get,
   HttpCode,
   HttpStatus,
-  Post,
-  Patch,
   Param,
   ParseUUIDPipe,
+  Patch,
+  Post,
   Query,
 } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
@@ -24,11 +24,14 @@ import { MeterReadingCreateCommand } from '../../../application/commands/meter-r
 import { MeterReadingBulkCreateCommand } from '../../../application/commands/meter-reading-bulk-create/meter-reading-bulk-create.command';
 import { MeterReadingBulkCreateResult } from '../../../application/commands/meter-reading-bulk-create/meter-reading-bulk-create.result';
 import { MeterReadingListQuery } from '../../../application/queries/meter-reading-list/meter-reading-list.query';
+import { MeterReadingUpdateCommand } from '../../../application/commands/meter-reading-update/meter-reading-update.command';
+import { Uuid } from 'shared/domain/value-objects/uuid.vo';
 import { MeterReadingEntity } from '../../../domain/entities/meter-reading.entity';
 import { MeterReadingResponseCodeConstant as Code } from '../constants/meter-reading-response-code.constant';
 import { CreateMeterReadingRequest } from '../requests/create-meter-reading.request.dto';
 import { BulkCreateMeterReadingsRequest } from '../requests/bulk-create-meter-readings.request.dto';
 import { MeterReadingListRequest } from '../requests/meter-reading-list.request.dto';
+import { UpdateMeterReadingRequest } from '../requests/update-meter-reading.request.dto';
 import { MeterReadingResponseDto } from '../responses/meter-reading.response.dto';
 import { BulkMeterReadingResponseDto } from '../responses/bulk-meter-reading.response.dto';
 import { Inject } from '@nestjs/common';
@@ -36,7 +39,6 @@ import {
   MEDIA_LOOKUP_PORT,
   MediaLookupPort,
 } from 'modules/media/application/ports/media-lookup.port';
-import { Uuid } from 'shared/domain/value-objects/uuid.vo';
 import { MeterReadingEvidenceAttachCommand } from '../../../application/commands/meter-reading-evidence-attach/meter-reading-evidence-attach.command';
 import { MeterReadingEvidenceAttachRequestDto } from '../requests/meter-reading-evidence-attach.request.dto';
 
@@ -124,6 +126,30 @@ export class MeterReadingController {
         request.evidenceMediaIds,
       ),
     );
+    return this.withMediaUrl(MeterReadingResponseDto.fromDomain(reading));
+  }
+
+  @Patch(':meterReadingId')
+  @HttpCode(HttpStatus.OK)
+  @ResponseCode(Code.METER_READING_UPDATED)
+  @ApiOperation({
+    operationId: 'patchMeterReading',
+    summary: 'Update the latest meter reading before invoice issue',
+  })
+  @ApiSuccessResponse({
+    status: HttpStatus.OK,
+    code: Code.METER_READING_UPDATED,
+    dataDto: MeterReadingResponseDto,
+  })
+  async update(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('meterReadingId', ParseUUIDPipe) meterReadingId: Uuid,
+    @Body() request: UpdateMeterReadingRequest,
+  ): Promise<MeterReadingResponseDto> {
+    const reading = await this.commands.execute<
+      MeterReadingUpdateCommand,
+      MeterReadingEntity
+    >(request.toCommand(user.id, meterReadingId));
     return this.withMediaUrl(MeterReadingResponseDto.fromDomain(reading));
   }
 

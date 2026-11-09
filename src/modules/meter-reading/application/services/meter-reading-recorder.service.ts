@@ -80,6 +80,7 @@ export class MeterReadingRecorder {
         input.roomId,
         input.type,
         input.period.value,
+        input.isBaseline,
         context,
       )
     ) {
@@ -90,7 +91,13 @@ export class MeterReadingRecorder {
       input.type,
       context,
     );
-    if (latest && !input.period.isAfter(latest.period)) {
+    const samePeriodBaseline =
+      latest?.isBaseline && latest.period.value === input.period.value;
+    if (
+      latest &&
+      !input.period.isAfter(latest.period) &&
+      !(samePeriodBaseline && !input.isBaseline)
+    ) {
       throw new MeterReadingPeriodOutOfOrderException();
     }
     if (!latest && !input.isBaseline) {
@@ -180,9 +187,11 @@ export class MeterReadingRecorder {
         `${item.roomId.toLowerCase()}:${item.type}`,
       );
       if (!previous) {
-        throw new ValidationException('A submitted reading needs a baseline');
+        throw new BaselineRequiredException();
       }
-      if (!input.period.isAfter(previous.period)) {
+      const samePeriodBaseline =
+        previous.isBaseline && input.period.value === previous.period.value;
+      if (!input.period.isAfter(previous.period) && !samePeriodBaseline) {
         if (input.period.value === previous.period.value) {
           throw new DuplicateBulkMeterReadingException();
         }

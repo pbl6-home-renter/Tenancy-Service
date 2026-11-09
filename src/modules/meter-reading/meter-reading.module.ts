@@ -6,6 +6,7 @@ import { BuildingModule } from 'modules/building/building.module';
 import { RoomModule } from 'modules/room/room.module';
 import { MeterReadingCreateCommandHandler } from './application/commands/meter-reading-create/meter-reading-create.command.handler';
 import { MeterReadingBulkCreateCommandHandler } from './application/commands/meter-reading-bulk-create/meter-reading-bulk-create.command.handler';
+import { MeterReadingUpdateCommandHandler } from './application/commands/meter-reading-update/meter-reading-update.command.handler';
 import { MeterReadingRecorder } from './application/services/meter-reading-recorder.service';
 import { MeterReadingListQueryHandler } from './application/queries/meter-reading-list/meter-reading-list.query.handler';
 import { TypeOrmMeterReadingRepository } from './infrastructure/persistence/meter-reading.repository';
@@ -31,6 +32,7 @@ import { MeterReadingEvidenceAttachCommandHandler } from './application/commands
     MeterReadingCreateCommandHandler,
     MeterReadingEvidenceAttachCommandHandler,
     MeterReadingBulkCreateCommandHandler,
+    MeterReadingUpdateCommandHandler,
     MeterReadingRecorder,
     MeterReadingListQueryHandler,
     { provide: MEDIA_LOOKUP_PORT, useClass: IdentityMediaLookupService },

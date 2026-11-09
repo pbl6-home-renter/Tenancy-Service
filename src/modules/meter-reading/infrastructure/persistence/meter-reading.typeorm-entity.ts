@@ -8,7 +8,7 @@ import { MeterType } from '../../domain/enums/meter-type.enum';
 @Entity('meter_readings')
 @Index('UQ_meter_readings_room_type_period', ['roomId', 'type', 'period'], {
   unique: true,
-  where: 'is_deleted = false',
+  where: 'is_baseline = false AND is_deleted = false',
 })
 @Index('IDX_meter_readings_landlord_period', ['landlordId', 'period'], {
   where: 'is_deleted = false',

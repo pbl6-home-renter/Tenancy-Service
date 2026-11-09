@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { ContractTypeormEntity } from 'modules/contract/infrastructure/persistence/contract.entity';
+import { InvoiceTypeormEntity } from 'modules/invoice/infrastructure/persistence/invoice.typeorm-entity';
 import type { QueryDeepPartialEntity } from 'typeorm';
 import { OffsetPageQuery } from 'shared/application/pagination/offset-page-query';
 import { PaginatedResult } from 'shared/application/pagination/paginated-result';
@@ -59,7 +61,7 @@ export class TypeOrmMeterReadingRepository
   ): Promise<MeterReadingEntity | null> {
     const raw = await withTransaction(this.repository, context).findOne({
       where: { roomId, type, isDeleted: false },
-      order: { period: 'DESC' },
+      order: { period: 'DESC', isBaseline: 'ASC' },
     });
     return raw ? MeterReadingMapper.toDomain(raw) : null;
   }
@@ -77,6 +79,7 @@ export class TypeOrmMeterReadingRepository
       .orderBy('reading.roomId', 'ASC')
       .addOrderBy('reading.type', 'ASC')
       .addOrderBy('reading.period', 'DESC')
+      .addOrderBy('reading.isBaseline', 'ASC')
       .getMany();
     return raw.map(MeterReadingMapper.toDomain);
   }
@@ -97,14 +100,35 @@ export class TypeOrmMeterReadingRepository
     roomId: Uuid,
     type: MeterType,
     period: string,
+    isBaseline: boolean,
     context: TransactionContext,
   ): Promise<boolean> {
     return withTransaction(this.repository, context).existsBy({
       roomId,
       type,
       period,
+      isBaseline,
       isDeleted: false,
     });
+  }
+
+  async hasIssuedInvoice(
+    roomId: Uuid,
+    period: string,
+    context: TransactionContext,
+  ): Promise<boolean> {
+    return withTransaction(this.repository, context)
+      .manager.createQueryBuilder(InvoiceTypeormEntity, 'invoice')
+      .innerJoin(
+        ContractTypeormEntity,
+        'contract',
+        'invoice.contractId = contract.id',
+      )
+      .where('invoice.period = :period', { period })
+      .andWhere('invoice.status = :status', { status: 'issued' })
+      .andWhere('invoice.isDeleted = false')
+      .andWhere('contract.roomId = :roomId', { roomId })
+      .getExists();
   }
 
   async findPage(

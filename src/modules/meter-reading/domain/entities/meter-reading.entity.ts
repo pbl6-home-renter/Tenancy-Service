@@ -7,6 +7,7 @@ import {
 } from 'shared/domain/value-objects/uuid.vo';
 import { MeterType } from '../enums/meter-type.enum';
 import { MeterReadingRecordedEvent } from '../events/meter-reading-recorded.event';
+import { MeterReadingUpdatedEvent } from '../events/meter-reading-updated.event';
 import { CurrentReadingInvalidException } from '../exceptions/current-reading-invalid.exception';
 import { MeterValue } from '../value-objects/meter-value.vo';
 import { ReadingPeriod } from '../value-objects/reading-period.vo';
@@ -25,7 +26,7 @@ export class MeterReadingEntity extends AggregateRoot {
     readonly type: MeterType,
     readonly period: ReadingPeriod,
     readonly previousReading: MeterValue,
-    readonly currentReading: MeterValue,
+    private _currentReading: MeterValue,
     readonly isBaseline: boolean,
     private _evidenceMedia: MediaReference[],
     createdAt: Date,
@@ -110,18 +111,47 @@ export class MeterReadingEntity extends AggregateRoot {
     return MeterValue.difference(this.currentReading, this.previousReading);
   }
 
+  get currentReading(): MeterValue {
+    return this._currentReading;
+  }
+
   get evidenceMediaIds(): Uuid[] {
     return this._evidenceMedia.map((reference) => reference.mediaId);
   }
 
-  attachEvidence(mediaIds: Uuid[]): void {
+  update(
+    currentReading?: MeterValue,
+    evidenceMediaIds?: readonly Uuid[],
+  ): void {
+    if (currentReading && currentReading.cents < this.previousReading.cents)
+      throw new CurrentReadingInvalidException();
     if (
-      !mediaIds.every(isValidUuid) ||
-      new Set(mediaIds).size !== mediaIds.length
+      evidenceMediaIds !== undefined &&
+      (!evidenceMediaIds.every(isValidUuid) ||
+        new Set(evidenceMediaIds).size !== evidenceMediaIds.length)
     )
       throw new ValidationException(
         'evidenceMediaIds must be unique valid UUIDs',
       );
-    this._evidenceMedia = mediaIds.map(MediaReference.create);
+    if (currentReading) this._currentReading = currentReading;
+    if (evidenceMediaIds !== undefined)
+      this._evidenceMedia = evidenceMediaIds.map(MediaReference.create);
+    this.recordUpdate();
+  }
+
+  private recordUpdate(): void {
+    this.updatedAt.setTime(Date.now());
+    this.addDomainEvent(
+      new MeterReadingUpdatedEvent(
+        this.id,
+        this.roomId,
+        this.buildingId,
+        this.type,
+        this.period.value,
+        this.previousReading.value,
+        this.currentReading.value,
+        this.evidenceMediaIds,
+      ),
+    );
   }
 }
