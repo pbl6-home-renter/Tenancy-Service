@@ -149,6 +149,14 @@ export class ContractEntity extends AggregateRoot {
     return this._status;
   }
 
+  isActiveDuring(start: string, end: string): boolean {
+    return (
+      this._status === ContractStatus.ACTIVE &&
+      this._startDate <= end &&
+      this._endDate >= start
+    );
+  }
+
   get description(): string | null {
     return this._description;
   }

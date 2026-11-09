@@ -34,4 +34,9 @@ export interface MeterReadingRepository extends BaseRepository<MeterReadingEntit
     period: string,
     context: TransactionContext,
   ): Promise<boolean>;
+  findByRoomAndPeriod(
+    roomId: Uuid,
+    period: string,
+    context?: TransactionContext,
+  ): Promise<MeterReadingEntity[]>;
 }

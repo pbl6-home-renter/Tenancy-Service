@@ -22,6 +22,11 @@ export interface ContractRepository extends BaseRepository<ContractEntity> {
     id: Uuid,
     context: TransactionContext,
   ): Promise<ContractEntity | null>;
+  findActiveInBuildingPeriod(
+    buildingId: Uuid,
+    periodStart: string,
+    periodEnd: string,
+  ): Promise<ContractEntity[]>;
   existsActiveByRoom(
     roomId: Uuid,
     context?: TransactionContext,

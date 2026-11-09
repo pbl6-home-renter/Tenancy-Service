@@ -1,3 +1,4 @@
 export const INVOICE_DI_TOKEN = {
+  HEAD_COUNT: Symbol('INVOICE_HEAD_COUNT'),
   REPOSITORY: Symbol('INVOICE_REPOSITORY'),
 } as const;

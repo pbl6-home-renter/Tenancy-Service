@@ -64,6 +64,26 @@ export class TypeOrmContractRepository implements ContractRepository {
     });
   }
 
+  async findActiveInBuildingPeriod(
+    buildingId: Uuid,
+    periodStart: string,
+    periodEnd: string,
+  ): Promise<ContractEntity[]> {
+    const rows = await this.repository
+      .createQueryBuilder('contract')
+      .innerJoin(RoomTypeormEntity, 'room', 'room.id = contract.roomId')
+      .where('room.buildingId = :buildingId', { buildingId })
+      .andWhere('room.isDeleted = false')
+      .andWhere('contract.isDeleted = false')
+      .andWhere('contract.status = :status', { status: ContractStatus.ACTIVE })
+      .andWhere('contract.startDate <= :periodEnd', { periodEnd })
+      .andWhere('contract.endDate >= :periodStart', { periodStart })
+      .orderBy('contract.roomId', 'ASC')
+      .addOrderBy('contract.id', 'ASC')
+      .getMany();
+    return rows.map(ContractMapper.toDomain);
+  }
+
   async findPageByLandlord(
     landlordId: Uuid,
     options: OffsetPageQuery<ContractListFilter>,
