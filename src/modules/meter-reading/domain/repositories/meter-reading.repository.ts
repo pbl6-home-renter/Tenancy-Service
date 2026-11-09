@@ -5,6 +5,10 @@ import { MeterReadingEntity } from '../entities/meter-reading.entity';
 import { MeterType } from '../enums/meter-type.enum';
 
 export interface MeterReadingRepository extends BaseRepository<MeterReadingEntity> {
+  findById(
+    id: Uuid,
+    context?: TransactionContext,
+  ): Promise<MeterReadingEntity | null>;
   findLatest(
     roomId: Uuid,
     type: MeterType,
@@ -14,6 +18,7 @@ export interface MeterReadingRepository extends BaseRepository<MeterReadingEntit
     roomId: Uuid,
     type: MeterType,
     period: string,
+    isBaseline: boolean,
     context: TransactionContext,
   ): Promise<boolean>;
   findLatestForRooms(
@@ -24,4 +29,9 @@ export interface MeterReadingRepository extends BaseRepository<MeterReadingEntit
     readings: MeterReadingEntity[],
     context: TransactionContext,
   ): Promise<void>;
+  hasIssuedInvoice(
+    roomId: Uuid,
+    period: string,
+    context: TransactionContext,
+  ): Promise<boolean>;
 }
