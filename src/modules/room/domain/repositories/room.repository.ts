@@ -12,6 +12,7 @@ export interface RoomListFilter {
 }
 
 export interface RoomRepository extends BaseRepository<Room> {
+  findById(id: Uuid, context?: TransactionContext): Promise<Room | null>;
   findOwnedPaginated(
     landlordId: Uuid,
     query: OffsetPageQuery<RoomListFilter>,

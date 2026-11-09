@@ -15,4 +15,13 @@ export class ReadingPeriod {
   isAfter(other: ReadingPeriod): boolean {
     return this.value > other.value;
   }
+
+  bounds(): { start: string; end: string } {
+    const [year, month] = this.value.split('-').map(Number);
+    const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+    return {
+      start: `${this.value}-01`,
+      end: `${this.value}-${String(lastDay).padStart(2, '0')}`,
+    };
+  }
 }

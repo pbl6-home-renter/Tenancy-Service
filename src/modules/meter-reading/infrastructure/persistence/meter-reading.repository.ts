@@ -131,6 +131,17 @@ export class TypeOrmMeterReadingRepository
       .getExists();
   }
 
+  async findByRoomAndPeriod(
+    roomId: Uuid,
+    period: string,
+    context?: TransactionContext,
+  ): Promise<MeterReadingEntity[]> {
+    const rows = await withTransaction(this.repository, context).find({
+      where: { roomId, period, isBaseline: false, isDeleted: false },
+    });
+    return rows.map(MeterReadingMapper.toDomain);
+  }
+
   async findPage(
     landlordId: Uuid,
     query: OffsetPageQuery<MeterReadingPageFilter>,
