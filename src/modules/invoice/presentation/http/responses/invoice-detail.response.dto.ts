@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Uuid } from 'shared/domain/value-objects/uuid.vo';
 import { InvoiceDetailView } from '../../../application/ports/invoice-read.port';
 import {
@@ -23,7 +23,7 @@ export class InvoiceDetailResponseDto {
   @ApiProperty({ enum: InvoiceStatus }) invoiceStatus: InvoiceStatus;
   @ApiProperty({ type: Date, nullable: true }) issuedAt: Date | null;
   @ApiProperty({ format: 'uuid', nullable: true }) voidedInvoiceId: Uuid | null;
-  @ApiProperty({ nullable: true }) voidReason: string | null;
+  @ApiPropertyOptional({ nullable: true }) voidReason?: string | null;
   @ApiProperty({ nullable: true }) note: string | null;
 
   static fromView(view: InvoiceDetailView): InvoiceDetailResponseDto {

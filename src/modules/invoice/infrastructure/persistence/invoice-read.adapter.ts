@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, SelectQueryBuilder } from 'typeorm';
 import { ContractTypeormEntity } from 'modules/contract/infrastructure/persistence/contract.entity';
+import { applyContractTenantAccess } from 'modules/contract/infrastructure/persistence/contract-tenant-access.query';
 import { RoomTypeormEntity } from 'modules/room/infrastructure/persistence/room.typeorm-entity';
 import { OffsetPageQuery } from 'shared/application/pagination/offset-page-query';
 import { PaginatedResult } from 'shared/application/pagination/paginated-result';
@@ -11,6 +12,8 @@ import {
   InvoiceDetailView,
   InvoiceListFilter,
   InvoiceListView,
+  InvoiceMyListFilter,
+  InvoiceMyListView,
   InvoiceReadPort,
 } from '../../application/ports/invoice-read.port';
 import { InvoiceStatus } from '../../domain/enums/invoice-status.enum';
@@ -96,7 +99,87 @@ export class TypeOrmInvoiceReadAdapter implements InvoiceReadPort {
   }
 
   async findById(id: Uuid): Promise<InvoiceDetailView | null> {
-    const { raw, entities } = await this.repository
+    return this.readDetail(
+      this.detailQuery().andWhere('invoice.id = :id', { id }),
+    );
+  }
+
+  async findPageByTenant(
+    tenantId: Uuid,
+    options: OffsetPageQuery<InvoiceMyListFilter>,
+  ): Promise<PaginatedResult<InvoiceMyListView>> {
+    const query = this.repository
+      .createQueryBuilder('invoice')
+      .innerJoin(
+        ContractTypeormEntity,
+        'contract',
+        'contract.id = invoice.contractId',
+      )
+      .innerJoin(RoomTypeormEntity, 'room', 'room.id = contract.roomId')
+      .where('invoice.isDeleted = false')
+      .andWhere('contract.isDeleted = false')
+      .andWhere('invoice.status = :issuedStatus', {
+        issuedStatus: InvoiceStatus.ISSUED,
+      });
+    applyContractTenantAccess(query, tenantId);
+    if (options.filter?.contractId)
+      query.andWhere('invoice.contractId = :contractId', {
+        contractId: options.filter.contractId,
+      });
+    if (options.filter?.period)
+      query.andWhere('invoice.period = :period', {
+        period: options.filter.period,
+      });
+    const totalItems = await query.getCount();
+    applySortingToQueryBuilder(query, options, {
+      whitelist: ['period'],
+      defaultSort: 'period',
+      defaultOrder: 'desc',
+      alias: 'invoice',
+    });
+    const rows = await query
+      .select('invoice.id', 'id')
+      .addSelect('invoice.code', 'code')
+      .addSelect('invoice.contractId', 'contractId')
+      .addSelect('room.name', 'roomName')
+      .addSelect('invoice.period', 'period')
+      .addSelect('invoice.totalAmount', 'totalAmount')
+      .addSelect('invoice.status', 'invoiceStatus')
+      .addSelect('invoice.issuedAt', 'issuedAt')
+      .offset((options.pageNo - 1) * options.pageSize)
+      .limit(options.pageSize)
+      .getRawMany<InvoiceMyListView>();
+    const totalPages = Math.ceil(totalItems / options.pageSize);
+    return {
+      data: rows,
+      pagination: {
+        type: 'offset',
+        pageNo: options.pageNo,
+        pageSize: options.pageSize,
+        totalItems,
+        totalPages,
+        hasNextPage: options.pageNo < totalPages,
+        hasPreviousPage: options.pageNo > 1,
+      },
+    };
+  }
+
+  findIssuedByIdForTenant(
+    id: Uuid,
+    tenantId: Uuid,
+  ): Promise<InvoiceDetailView | null> {
+    const query = this.detailQuery()
+      .andWhere('invoice.id = :id', { id })
+      .andWhere('invoice.status = :issuedStatus', {
+        issuedStatus: InvoiceStatus.ISSUED,
+      })
+      .andWhere('contract.isDeleted = false');
+    applyContractTenantAccess(query, tenantId);
+    return this.readDetail(query);
+  }
+
+  private detailQuery(): SelectQueryBuilder<InvoiceTypeormEntity> {
+    return this.repository
       .createQueryBuilder('invoice')
       .innerJoin(
         ContractTypeormEntity,
@@ -109,9 +192,13 @@ export class TypeOrmInvoiceReadAdapter implements InvoiceReadPort {
       .addSelect('room.name', 'roomName')
       .addSelect('contract.tenantName', 'tenantName')
       .addSelect('contract.tenantPhone', 'tenantPhone')
-      .where('invoice.id = :id', { id })
-      .andWhere('invoice.isDeleted = false')
-      .getRawAndEntities();
+      .where('invoice.isDeleted = false');
+  }
+
+  private async readDetail(
+    query: SelectQueryBuilder<InvoiceTypeormEntity>,
+  ): Promise<InvoiceDetailView | null> {
+    const { raw, entities } = await query.getRawAndEntities();
     if (!entities.length) return null;
     const metadata = raw[0] as {
       landlordId: Uuid;

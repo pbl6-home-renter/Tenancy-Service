@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Brackets, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { BuildingTypeormEntity } from 'modules/building/infrastructure/persistence/building.typeorm-entity';
 import { RoomTypeormEntity } from 'modules/room/infrastructure/persistence/room.typeorm-entity';
 import { OffsetPageQuery } from 'shared/application/pagination/offset-page-query';
@@ -13,7 +13,7 @@ import {
   ContractReadRepository,
 } from '../../domain/repositories/contract-read.repository';
 import { ContractListFilter } from '../../domain/repositories/contract.repository';
-import { ContractMemberTypeormEntity } from './contract-member.entity';
+import { applyContractTenantAccess } from './contract-tenant-access.query';
 import { ContractTypeormEntity } from './contract.entity';
 
 type ContractListRaw = Omit<
@@ -62,23 +62,7 @@ export class TypeOrmContractReadRepository implements ContractReadRepository {
       .addSelect('contract.endDate', 'endDate')
       .where('contract.isDeleted = false');
 
-    const membership = query
-      .subQuery()
-      .select('1')
-      .from(ContractMemberTypeormEntity, 'member')
-      .where('member.contractId = contract.id')
-      .andWhere('member.tenantId = :tenantId', { tenantId })
-      .andWhere('member.isDeleted = false')
-      .andWhere('(member.leftAt IS NULL OR member.leftAt > :today)', {
-        today: new Date().toISOString().slice(0, 10),
-      });
-    query.andWhere(
-      new Brackets((builder) => {
-        builder
-          .where('contract.tenantId = :tenantId', { tenantId })
-          .orWhere(`EXISTS ${membership.getQuery()}`);
-      }),
-    );
+    applyContractTenantAccess(query, tenantId);
 
     if (options.filter?.roomId) {
       query.andWhere('contract.roomId = :roomId', {
