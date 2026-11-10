@@ -3,9 +3,15 @@ import { PaginatedResult } from 'shared/application/pagination/paginated-result'
 import { BaseRepository } from 'shared/domain/repositories/base.repository';
 import { TransactionContext } from 'shared/domain/repositories/transaction-context';
 import { Uuid } from 'shared/domain/value-objects/uuid.vo';
+import { TenantPhone } from '../value-objects/tenant-phone.vo';
 import { ContractMember } from '../entities/contract-member.entity';
 
 export interface ContractMemberRepository extends BaseRepository<ContractMember> {
+  findUnlinkedByPhoneForUpdate(
+    contractId: Uuid,
+    phone: TenantPhone,
+    context: TransactionContext,
+  ): Promise<ContractMember[]>;
   saveMany(
     members: ContractMember[],
     context?: TransactionContext,

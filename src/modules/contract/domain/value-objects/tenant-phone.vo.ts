@@ -19,7 +19,11 @@ export class TenantPhone {
     return this._value;
   }
 
+  get normalizedValue(): string {
+    return this._value.replace(/^\+84/, '0');
+  }
+
   equals(other: TenantPhone): boolean {
-    return this._value === other._value;
+    return this.normalizedValue === other.normalizedValue;
   }
 }

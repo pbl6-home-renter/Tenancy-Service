@@ -5,6 +5,7 @@ import { OffsetPageQuery } from 'shared/application/pagination/offset-page-query
 import { PaginatedResult } from 'shared/application/pagination/paginated-result';
 import { ContractEntity } from '../entities/contract.entity';
 import { ContractStatus } from '../enums/contract-status.enum';
+import { TenantPhone } from '../value-objects/tenant-phone.vo';
 
 export interface ContractListFilter {
   roomId?: Uuid;
@@ -14,6 +15,10 @@ export interface ContractListFilter {
 }
 
 export interface ContractRepository extends BaseRepository<ContractEntity> {
+  findUnlinkedByPhoneForUpdate(
+    phone: TenantPhone,
+    context: TransactionContext,
+  ): Promise<ContractEntity[]>;
   findById(
     id: Uuid,
     context?: TransactionContext,

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Brackets, Repository } from 'typeorm';
 import { OffsetPageQuery } from 'shared/application/pagination/offset-page-query';
 import { PaginatedResult } from 'shared/application/pagination/paginated-result';
 import { TransactionContext } from 'shared/domain/repositories/transaction-context';
@@ -16,6 +16,7 @@ import {
 } from '../../domain/repositories/contract.repository';
 import { ContractTypeormEntity } from './contract.entity';
 import { ContractMapper } from './mappers/contract.mapper';
+import { TenantPhone } from '../../domain/value-objects/tenant-phone.vo';
 
 @Injectable()
 export class TypeOrmContractRepository implements ContractRepository {
@@ -23,6 +24,33 @@ export class TypeOrmContractRepository implements ContractRepository {
     @InjectRepository(ContractTypeormEntity)
     private readonly repository: Repository<ContractTypeormEntity>,
   ) {}
+
+  async findUnlinkedByPhoneForUpdate(
+    phone: TenantPhone,
+    context: TransactionContext,
+  ): Promise<ContractEntity[]> {
+    // Lock parents first, as activation/checkout do, including member-only matches.
+    const rows = await withTransaction(this.repository, context)
+      .createQueryBuilder('contract')
+      .where('contract.isDeleted = false')
+      .andWhere(
+        new Brackets((query) => {
+          query.where(
+            "(contract.tenantId IS NULL AND regexp_replace(contract.tenantPhone, :phonePrefix, '0') = :phone)",
+          ).orWhere(`EXISTS (
+            SELECT 1 FROM contract_members member
+            WHERE member.contract_id = contract.id
+              AND member.is_deleted = false AND member.tenant_id IS NULL
+              AND regexp_replace(member.tenant_phone, :phonePrefix, '0') = :phone
+          )`);
+        }),
+      )
+      .setParameters({ phone: phone.normalizedValue, phonePrefix: '^\\+84' })
+      .orderBy('contract.id', 'ASC')
+      .setLock('pessimistic_write')
+      .getMany();
+    return rows.map(ContractMapper.toDomain);
+  }
 
   async save(
     contract: ContractEntity,

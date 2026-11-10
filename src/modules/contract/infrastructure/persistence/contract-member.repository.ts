@@ -12,6 +12,7 @@ import { ContractMemberRepository } from '../../domain/repositories/contract-mem
 import { ContractMemberTypeormEntity } from './contract-member.entity';
 import { ContractTypeormEntity } from './contract.entity';
 import { ContractMemberMapper } from './mappers/contract-member.mapper';
+import { TenantPhone } from '../../domain/value-objects/tenant-phone.vo';
 
 @Injectable()
 export class TypeOrmContractMemberRepository implements ContractMemberRepository {
@@ -19,6 +20,35 @@ export class TypeOrmContractMemberRepository implements ContractMemberRepository
     @InjectRepository(ContractMemberTypeormEntity)
     private readonly repository: Repository<ContractMemberTypeormEntity>,
   ) {}
+
+  async findUnlinkedByPhoneForUpdate(
+    contractId: Uuid,
+    phone: TenantPhone,
+    context: TransactionContext,
+  ): Promise<ContractMember[]> {
+    const rows = await withTransaction(this.repository, context)
+      .createQueryBuilder('member')
+      .innerJoin(
+        ContractTypeormEntity,
+        'contract',
+        'contract.id = member.contractId',
+      )
+      .where('member.contractId = :contractId', { contractId })
+      .andWhere('contract.isDeleted = false')
+      .andWhere('member.isDeleted = false')
+      .andWhere('member.tenantId IS NULL')
+      .andWhere(
+        "regexp_replace(member.tenantPhone, :phonePrefix, '0') = :phone",
+        {
+          phone: phone.normalizedValue,
+          phonePrefix: '^\\+84',
+        },
+      )
+      .orderBy('member.id', 'ASC')
+      .setLock('pessimistic_write', undefined, ['member'])
+      .getMany();
+    return rows.map(ContractMemberMapper.toDomain);
+  }
 
   async save(
     member: ContractMember,
