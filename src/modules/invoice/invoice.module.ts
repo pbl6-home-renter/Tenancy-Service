@@ -13,6 +13,7 @@ import { InvoiceIssueCommandHandler } from './application/commands/invoice-issue
 import { InvoiceUpdateCommandHandler } from './application/commands/invoice-update/invoice-update.command.handler';
 import { InvoiceDetailQueryHandler } from './application/queries/invoice-detail/invoice-detail.query.handler';
 import { InvoiceListQueryHandler } from './application/queries/invoice-list/invoice-list.query.handler';
+import { InvoiceMyListQueryHandler } from './application/queries/invoice-my-list/invoice-my-list.query.handler';
 import { InvoiceCalculationLoaderService } from './application/services/invoice-calculation-loader.service';
 import { InvoiceGenerationService } from './application/services/invoice-generation.service';
 import { InvoiceIssueItemService } from './application/services/invoice-issue-item.service';
@@ -20,6 +21,7 @@ import { InvoiceOwnershipService } from './application/services/invoice-ownershi
 import { InvoicePersistenceService } from './application/services/invoice-persistence.service';
 import { ContractHeadCountAdapter } from './infrastructure/adapters/contract-head-count.adapter';
 import { InvoiceController } from './presentation/http/controllers/invoice.controller';
+import { InvoiceMyController } from './presentation/http/controllers/invoice-my.controller';
 import { InvoiceCalculatorService } from './domain/services/invoice-calculator.service';
 import { TypeOrmInvoiceRepository } from './infrastructure/persistence/invoice.repository';
 import { TypeOrmInvoiceIdempotencyRepository } from './infrastructure/persistence/invoice-idempotency.repository';
@@ -42,7 +44,7 @@ import { INVOICE_DI_TOKEN } from './invoice.di-token';
     MeterReadingModule,
     OutboxModule,
   ],
-  controllers: [InvoiceController],
+  controllers: [InvoiceController, InvoiceMyController],
   providers: [
     InvoiceCalculatorService,
     InvoiceCalculationLoaderService,
@@ -55,6 +57,7 @@ import { INVOICE_DI_TOKEN } from './invoice.di-token';
     InvoiceUpdateCommandHandler,
     InvoiceCancelCommandHandler,
     InvoiceListQueryHandler,
+    InvoiceMyListQueryHandler,
     InvoiceDetailQueryHandler,
     ContractHeadCountAdapter,
     {

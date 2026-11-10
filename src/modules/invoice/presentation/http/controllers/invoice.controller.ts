@@ -51,6 +51,7 @@ import { InvoiceGenerateResponseDto } from '../responses/invoice-generate.respon
 import { InvoiceIssueResponseDto } from '../responses/invoice-issue.response.dto';
 import { InvoiceListResponseDto } from '../responses/invoice-list.response.dto';
 import { InvoiceUpdateResponseDto } from '../responses/invoice-update.response.dto';
+import { InvoiceTenantDetailResponseDto } from '../responses/invoice-tenant-detail.response.dto';
 
 @ApiTags('Invoice')
 @ApiBearerAuth()
@@ -138,6 +139,7 @@ export class InvoiceController {
   }
 
   @Get(':invoiceId')
+  @Roles(UserRole.LANDLORD, UserRole.TENANT)
   @HttpCode(HttpStatus.OK)
   @ResponseCode('INVOICE_FETCHED')
   @ApiOperation({
@@ -152,12 +154,14 @@ export class InvoiceController {
   async detail(
     @CurrentUser() user: AuthenticatedUser,
     @Param('invoiceId', ParseUUIDPipe) invoiceId: Uuid,
-  ): Promise<InvoiceDetailResponseDto> {
+  ): Promise<InvoiceDetailResponseDto | InvoiceTenantDetailResponseDto> {
     const view = await this.queries.execute<
       InvoiceDetailQuery,
       InvoiceDetailView
-    >(new InvoiceDetailQuery(invoiceId, user.id));
-    return InvoiceDetailResponseDto.fromView(view);
+    >(new InvoiceDetailQuery(invoiceId, user.id, user.role));
+    return user.role === UserRole.TENANT
+      ? InvoiceTenantDetailResponseDto.fromView(view)
+      : InvoiceDetailResponseDto.fromView(view);
   }
 
   @Patch(':invoiceId')

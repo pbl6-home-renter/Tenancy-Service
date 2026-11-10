@@ -12,6 +12,22 @@ export interface InvoiceListFilter {
   status?: InvoiceStatus;
 }
 
+export interface InvoiceMyListFilter {
+  contractId?: Uuid;
+  period?: string;
+}
+
+export interface InvoiceMyListView {
+  id: Uuid;
+  code: string;
+  contractId: Uuid;
+  roomName: string;
+  period: string;
+  totalAmount: string;
+  invoiceStatus: InvoiceStatus.ISSUED;
+  issuedAt: Date;
+}
+
 export interface InvoiceListView {
   id: Uuid;
   code: string;
@@ -41,4 +57,12 @@ export interface InvoiceReadPort {
     query: OffsetPageQuery<InvoiceListFilter>,
   ): Promise<PaginatedResult<InvoiceListView>>;
   findById(id: Uuid): Promise<InvoiceDetailView | null>;
+  findPageByTenant(
+    tenantId: Uuid,
+    query: OffsetPageQuery<InvoiceMyListFilter>,
+  ): Promise<PaginatedResult<InvoiceMyListView>>;
+  findIssuedByIdForTenant(
+    id: Uuid,
+    tenantId: Uuid,
+  ): Promise<InvoiceDetailView | null>;
 }
