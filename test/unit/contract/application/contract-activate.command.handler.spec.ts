@@ -58,6 +58,12 @@ describe('ContractActivateCommandHandler', () => {
       ]),
     };
     const memberRepository = {
+      findActiveByContract: jest.fn(
+        async (_contractId: string, passedContext: TransactionContext) => {
+          expect(passedContext).toBe(context);
+          return [];
+        },
+      ),
       save: jest.fn(
         async (_member: ContractMember, passedContext: TransactionContext) => {
           expect(passedContext).toBe(context);
@@ -127,6 +133,21 @@ describe('ContractActivateCommandHandler', () => {
         expect.objectContaining({ eventType: 'contract_member.added' }),
       ]),
       context,
+    );
+    const appended = (outboxRepository.append as jest.Mock).mock.calls[0][0];
+    expect(appended).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          eventType: 'contract.activated',
+          payload: expect.objectContaining({
+            contractId: contract.id,
+            buildingId: room.buildingId,
+            roomId: contract.roomId,
+            landlordId,
+            tenantUserIds: [contract.tenantId],
+          }),
+        }),
+      ]),
     );
   });
 

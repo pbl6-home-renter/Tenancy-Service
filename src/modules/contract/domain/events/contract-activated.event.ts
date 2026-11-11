@@ -15,17 +15,22 @@ export class ContractActivatedEvent implements DomainEvent {
   constructor(
     readonly aggregateId: Uuid,
     readonly roomId: Uuid,
+    readonly buildingId: Uuid,
     readonly landlordId: Uuid,
     readonly tenantId: Uuid | null,
+    readonly tenantUserIds: Uuid[],
     readonly activatedAt: string,
   ) {}
 
   get payload(): Record<string, unknown> {
     return {
       id: this.aggregateId,
+      contractId: this.aggregateId,
       roomId: this.roomId,
+      buildingId: this.buildingId,
       landlordId: this.landlordId,
       tenantId: this.tenantId,
+      tenantUserIds: this.tenantUserIds,
       activatedAt: this.activatedAt,
       status: ContractStatus.ACTIVE,
     };

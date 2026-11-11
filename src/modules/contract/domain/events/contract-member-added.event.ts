@@ -21,8 +21,10 @@ export class ContractMemberAddedEvent implements DomainEvent {
   get payload(): Record<string, unknown> {
     return {
       id: this.aggregateId,
+      contractMemberId: this.aggregateId,
       contractId: this.contractId,
       tenantId: this.tenantId,
+      tenantUserId: this.tenantId,
       joinedAt: this.joinedAt.toISOString().slice(0, 10),
     };
   }
