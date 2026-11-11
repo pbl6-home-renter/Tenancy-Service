@@ -18,11 +18,16 @@ import { CONTRACT_DI_TOKEN } from '../../contract.di-token';
 import { ContractMemberRepository } from '../../domain/repositories/contract-member.repository';
 import { ContractRepository } from '../../domain/repositories/contract.repository';
 import { TenantPhone } from '../../domain/value-objects/tenant-phone.vo';
-import { UserRegisteredIntegrationEvent } from './user-registered.integration-event';
+import {
+  UserIdentityLifecyclePayload,
+  UserRegisteredIntegrationEvent,
+} from './user-registered.integration-event';
+import { UserEmailVerifiedIntegrationEvent } from './user-email-verified.integration-event';
 import {
   IDENTITY_LIFECYCLE_CONSUMER_NAME,
   IDENTITY_LIFECYCLE_CONSUMER_QUEUE,
   USER_REGISTERED_EVENT,
+  USER_EMAIL_VERIFIED_EVENT,
 } from './identity-lifecycle-consumer.constants';
 
 @Injectable()
@@ -44,24 +49,33 @@ export class IdentityLifecycleSubscriber {
     name: ConsumerRegistry.define({
       name: IDENTITY_LIFECYCLE_CONSUMER_NAME,
       queue: IDENTITY_LIFECYCLE_CONSUMER_QUEUE,
-      routingKeys: [USER_REGISTERED_EVENT],
+      routingKeys: [USER_REGISTERED_EVENT, USER_EMAIL_VERIFIED_EVENT],
     }),
   })
   async handle(event: IntegrationEvent): Promise<void> {
-    this.assertUserRegisteredEvent(event);
+    if (!this.isRecord(event)) {
+      throw new ValidationException('Invalid identity lifecycle event');
+    }
+    const eventType =
+      event.eventType === USER_REGISTERED_EVENT
+        ? USER_REGISTERED_EVENT
+        : USER_EMAIL_VERIFIED_EVENT;
+    this.assertIdentityUserEvent(event, eventType);
+    const identityEvent = event as
+      UserRegisteredIntegrationEvent | UserEmailVerifiedIntegrationEvent;
     await this.handleOnce(event, (context) => {
-      return this.onUserRegistered(event, context);
+      return this.onTenantActivated(identityEvent.payload, context);
     });
   }
 
-  private async onUserRegistered(
-    event: UserRegisteredIntegrationEvent,
+  private async onTenantActivated(
+    payload: UserIdentityLifecyclePayload,
     context: TransactionContext,
   ): Promise<void> {
-    const { userId, role, status } = event.payload;
+    const { userId, role, status } = payload;
     if (role !== UserRole.TENANT || status !== UserStatus.ACTIVE) return;
 
-    const phone = TenantPhone.create(event.payload.phone.trim());
+    const phone = TenantPhone.create(payload.phone.trim());
     const contracts = await this.contracts.findUnlinkedByPhoneForUpdate(
       phone,
       context,
@@ -116,15 +130,17 @@ export class IdentityLifecycleSubscriber {
     });
   }
 
-  private assertUserRegisteredEvent(
+  private assertIdentityUserEvent(
     event: unknown,
-  ): asserts event is UserRegisteredIntegrationEvent {
+    expectedEventType: string,
+  ): asserts event is
+    UserRegisteredIntegrationEvent | UserEmailVerifiedIntegrationEvent {
     if (
       !this.isRecord(event) ||
       typeof event.id !== 'string' ||
       !isValidUuid(event.id) ||
-      event.eventType !== USER_REGISTERED_EVENT ||
-      event.routingKey !== USER_REGISTERED_EVENT ||
+      event.eventType !== expectedEventType ||
+      event.routingKey !== expectedEventType ||
       !this.isRecord(event.payload) ||
       typeof event.payload.userId !== 'string' ||
       !isValidUuid(event.payload.userId) ||
@@ -132,9 +148,7 @@ export class IdentityLifecycleSubscriber {
       !Object.values(UserRole).includes(event.payload.role as UserRole) ||
       !Object.values(UserStatus).includes(event.payload.status as UserStatus)
     ) {
-      throw new ValidationException(
-        'Invalid user.registered integration event',
-      );
+      throw new ValidationException('Invalid identity lifecycle event');
     }
   }
 

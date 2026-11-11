@@ -175,7 +175,7 @@ Toàn bộ biến lấy từ [`.env.example`](.env.example) và được validat
 | `npm run administrative-map:generate` | Tải lại snapshot tỉnh/phường từ `provinces.open-api.vn` (API v2) |
 
 > [!NOTE]
-> Service chưa có test script; kiểm tra bằng `npm run build`, `npm run lint` và lệnh kiểm tra dependency rule trong [`docs/architecture.md`](docs/architecture.md) §7.
+> Unit test domain/application chạy bằng `npm test`; CI dùng `npm run test:ci` (Jest + coverage). Test đặt trong `test/unit/`, ngoài production source.
 
 ## Cấu trúc thư mục
 
@@ -277,7 +277,7 @@ Building, Room, Contract đều xóa mềm (`isDeleted`). Đơn vị hành chín
 | Publish (outbox → RabbitMQ) | `building.created`, `building.updated`, `building.approved`, `building.rejected`, `building.deleted` |
 | | `room.created`, `room.updated`, `room.deleted`, `room.status_changed` |
 | | `contract.created`, `contract.updated`, `contract.activated` (domain đã định nghĩa, chưa có use case HTTP) |
-| Consume | Chưa có subscriber; module `inbox` sẵn sàng cho consumer tương lai |
+| Consume | `user.registered` và `user.email_verified` qua `tenancy.identity-lifecycle`; liên kết hợp đồng tenant theo số điện thoại sau khi tài khoản active |
 | Internal HTTP (GET) | `Identity-Service` `GET /internal/users?ids=...` — lấy tên/SĐT/email chủ trọ cho màn hình admin; Identity không phản hồi thì trả dữ liệu thiếu thông tin liên hệ thay vì lỗi |
 | External HTTP | TrackAsia `GET /api/v1/search` khi tạo/sửa địa chỉ building |
 
