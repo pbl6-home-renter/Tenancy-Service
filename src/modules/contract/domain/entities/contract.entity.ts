@@ -16,6 +16,7 @@ import { ContractNotFoundException } from '../exceptions/contract-not-found.exce
 import { ContractNotDraftException } from '../exceptions/contract-not-draft.exception';
 import { ContractNotReadyException } from '../exceptions/contract-not-ready.exception';
 import { TenantIdentityInvalidException } from '../exceptions/tenant-identity-invalid.exception';
+import { TenantPhone } from '../value-objects/tenant-phone.vo';
 import {
   ContractProps,
   CreateContractProps,
@@ -27,7 +28,7 @@ export class ContractEntity extends AggregateRoot {
     id: Uuid,
     private readonly _landlordId: Uuid,
     private readonly _roomId: Uuid,
-    private readonly _tenantId: Uuid | null,
+    private _tenantId: Uuid | null,
     private readonly _tenantName: string | null,
     private readonly _tenantPhone: string | null,
     private readonly _depositAmount: number,
@@ -103,6 +104,21 @@ export class ContractEntity extends AggregateRoot {
       new Date(props.updatedAt),
       props.isDeleted,
     );
+  }
+
+  linkTenant(userId: Uuid, phone: TenantPhone): boolean {
+    ContractEntity.assertUuid('tenantId', userId);
+    if (
+      this.isDeleted ||
+      this._tenantId !== null ||
+      this._tenantPhone === null ||
+      !TenantPhone.create(this._tenantPhone).equals(phone)
+    ) {
+      return false;
+    }
+    this._tenantId = userId;
+    this.updatedAt.setTime(Date.now());
+    return true;
   }
 
   get landlordId(): Uuid {
