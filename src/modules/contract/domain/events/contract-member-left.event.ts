@@ -14,13 +14,16 @@ export class ContractMemberLeftEvent implements DomainEvent {
   constructor(
     readonly aggregateId: Uuid,
     readonly contractId: Uuid,
+    readonly tenantId: Uuid | null,
     readonly leftAt: Date,
   ) {}
 
   get payload(): Record<string, unknown> {
     return {
       id: this.aggregateId,
+      contractMemberId: this.aggregateId,
       contractId: this.contractId,
+      tenantUserId: this.tenantId,
       leftAt: this.leftAt.toISOString().slice(0, 10),
     };
   }

@@ -190,7 +190,12 @@ export class ContractMember extends AggregateRoot {
     this._leftAt = leftAt;
     this.touch();
     this.addDomainEvent(
-      new ContractMemberLeftEvent(this.id, this.contractId, new Date(leftAt)),
+      new ContractMemberLeftEvent(
+        this.id,
+        this.contractId,
+        this.tenantId,
+        new Date(leftAt),
+      ),
     );
   }
 

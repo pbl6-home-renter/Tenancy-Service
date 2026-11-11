@@ -8,6 +8,7 @@ import { RoomRepository } from 'modules/room/domain/repositories/room.repository
 import { ROOM_DI_TOKEN } from 'modules/room/room.di-token';
 import { UNIT_OF_WORK_DI_TOKEN } from 'shared/application/di-tokens';
 import { IUnitOfWork } from 'shared/application/ports/unit-of-work.port';
+import { Uuid } from 'shared/domain/value-objects/uuid.vo';
 import { CONTRACT_DI_TOKEN } from '../../../contract.di-token';
 import { ContractMember } from '../../../domain/entities/contract-member.entity';
 import { ContractMemberRepository } from '../../../domain/repositories/contract-member.repository';
@@ -78,8 +79,6 @@ export class ContractActivateCommandHandler implements ICommandHandler<
       if (!room) throw new RoomNotFoundException(contract.roomId);
 
       const activatedAt = new Date();
-      contract.activate([...command.signedContractMediaIds], activatedAt);
-      room.occupyByContract();
       const representative = ContractMember.add({
         contractId: contract.id,
         tenantId: contract.tenantId,
@@ -87,6 +86,20 @@ export class ContractActivateCommandHandler implements ICommandHandler<
         tenantPhone: contract.tenantPhone,
         joinedAt: new Date(contract.startDate),
       });
+      const members = await this.memberRepository.findActiveByContract(
+        contract.id,
+        context,
+      );
+      const tenantUserIds = [representative, ...members]
+        .map((member) => member.tenantId)
+        .filter((id): id is Uuid => id !== null);
+      contract.activate(
+        [...command.signedContractMediaIds],
+        activatedAt,
+        room.buildingId,
+        [...new Set(tenantUserIds)],
+      );
+      room.occupyByContract();
       await this.memberRepository.save(representative, context);
 
       await this.contractRepository.save(contract, context);

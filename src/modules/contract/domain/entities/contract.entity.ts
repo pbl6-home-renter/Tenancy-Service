@@ -269,7 +269,12 @@ export class ContractEntity extends AggregateRoot {
   }
 
   /** The application verifies the signed artifact in Media before calling this. */
-  activate(signedMediaIds: Uuid[], now: Date): void {
+  activate(
+    signedMediaIds: Uuid[],
+    now: Date,
+    buildingId: Uuid,
+    tenantUserIds: Uuid[],
+  ): void {
     this.assertNotDeleted();
     if (
       ![ContractStatus.DRAFT, ContractStatus.SIGNED].includes(this.status) ||
@@ -288,8 +293,10 @@ export class ContractEntity extends AggregateRoot {
       new ContractActivatedEvent(
         this.id,
         this.roomId,
+        buildingId,
         this.landlordId,
         this.tenantId,
+        tenantUserIds,
         now.toISOString(),
       ),
     );

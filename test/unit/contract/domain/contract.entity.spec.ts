@@ -42,35 +42,48 @@ describe('ContractEntity', () => {
     const contract = createContract();
     const signedMediaId = generateUuid();
     const activatedAt = new Date('2026-01-01T00:00:00.000Z');
+    const buildingId = generateUuid();
 
-    contract.activate([signedMediaId], activatedAt);
+    contract.activate([signedMediaId], activatedAt, buildingId, [
+      contract.tenantId!,
+    ]);
 
     expect(contract.status).toBe(ContractStatus.ACTIVE);
     expect(contract.signedContractMediaIds).toEqual([signedMediaId]);
     expect(contract.activatedAt).toEqual(activatedAt);
     expect(contract.pullDomainEvents()).toEqual([
       expect.objectContaining({ eventType: 'contract.created' }),
-      expect.objectContaining({ eventType: 'contract.activated' }),
+      expect.objectContaining({
+        eventType: 'contract.activated',
+        payload: expect.objectContaining({
+          buildingId,
+          tenantUserIds: [contract.tenantId],
+        }),
+      }),
     ]);
   });
 
   it('requires at least one unique valid signed document before activation', () => {
     const contract = createContract();
+    const buildingId = generateUuid();
 
-    expect(() => contract.activate([], new Date())).toThrow(
+    expect(() => contract.activate([], new Date(), buildingId, [])).toThrow(
       ContractNotReadyException,
     );
     const mediaId = generateUuid();
-    expect(() => contract.activate([mediaId, mediaId], new Date())).toThrow(
-      ContractNotReadyException,
-    );
+    expect(() =>
+      contract.activate([mediaId, mediaId], new Date(), buildingId, []),
+    ).toThrow(ContractNotReadyException);
   });
 
   it('allows only draft updates before activation', () => {
     const contract = createContract();
+    const buildingId = generateUuid();
     contract.updateDraft({ description: 'Lease terms' });
     expect(contract.description).toBe('Lease terms');
-    contract.activate([generateUuid()], new Date());
+    contract.activate([generateUuid()], new Date(), buildingId, [
+      contract.tenantId!,
+    ]);
 
     expect(() => contract.updateDraft({ description: 'Changed' })).toThrow(
       ContractNotDraftException,
