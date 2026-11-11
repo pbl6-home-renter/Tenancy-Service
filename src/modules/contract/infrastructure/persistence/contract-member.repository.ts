@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Brackets, Repository } from 'typeorm';
+import { Brackets, In, Repository } from 'typeorm';
 import { OffsetPageQuery } from 'shared/application/pagination/offset-page-query';
 import { PaginatedResult } from 'shared/application/pagination/paginated-result';
 import { TransactionContext } from 'shared/domain/repositories/transaction-context';
@@ -12,6 +12,7 @@ import { ContractMemberRepository } from '../../domain/repositories/contract-mem
 import { ContractMemberTypeormEntity } from './contract-member.entity';
 import { ContractTypeormEntity } from './contract.entity';
 import { ContractMemberMapper } from './mappers/contract-member.mapper';
+import { TenantPhone } from '../../domain/value-objects/tenant-phone.vo';
 
 @Injectable()
 export class TypeOrmContractMemberRepository implements ContractMemberRepository {
@@ -19,6 +20,47 @@ export class TypeOrmContractMemberRepository implements ContractMemberRepository
     @InjectRepository(ContractMemberTypeormEntity)
     private readonly repository: Repository<ContractMemberTypeormEntity>,
   ) {}
+
+  async linkTenantMany(
+    ids: Uuid[],
+    tenantId: Uuid,
+    context: TransactionContext,
+  ): Promise<void> {
+    if (ids.length === 0) return;
+
+    await withTransaction(this.repository, context).update(
+      { id: In(ids), isDeleted: false },
+      { tenantId, updatedAt: new Date() },
+    );
+  }
+
+  async findUnlinkedByPhoneForUpdate(
+    contractIds: Uuid[],
+    phone: TenantPhone,
+    context: TransactionContext,
+  ): Promise<ContractMember[]> {
+    if (contractIds.length === 0) return [];
+
+    const rows = await withTransaction(this.repository, context)
+      .createQueryBuilder('member')
+      .innerJoin(
+        ContractTypeormEntity,
+        'contract',
+        'contract.id = member.contractId',
+      )
+      .where('member.contractId IN (:...contractIds)', { contractIds })
+      .andWhere('contract.isDeleted = false')
+      .andWhere('member.isDeleted = false')
+      .andWhere('member.tenantId IS NULL')
+      .andWhere('member.tenantPhone = :phone', {
+        phone: phone.normalizedValue,
+      })
+      .orderBy('member.contractId', 'ASC')
+      .addOrderBy('member.id', 'ASC')
+      .setLock('pessimistic_write', undefined, ['member'])
+      .getMany();
+    return rows.map(ContractMemberMapper.toDomain);
+  }
 
   async save(
     member: ContractMember,

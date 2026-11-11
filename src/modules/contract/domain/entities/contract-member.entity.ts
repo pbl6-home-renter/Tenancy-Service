@@ -11,6 +11,7 @@ import { MemberAlreadyLeftException } from '../exceptions/member-already-left.ex
 import { LeftDateInvalidException } from '../exceptions/left-date-invalid.exception';
 import { ContractMemberAddedEvent } from '../events/contract-member-added.event';
 import { ContractMemberLeftEvent } from '../events/contract-member-left.event';
+import { ContractMemberLinkedEvent } from '../events/contract-member-linked.event';
 import { TenantPhone } from '../value-objects/tenant-phone.vo';
 import {
   AddContractMemberProps,
@@ -21,7 +22,7 @@ export class ContractMember extends AggregateRoot {
   private constructor(
     id: Uuid,
     private readonly _contractId: Uuid,
-    private readonly _tenantId: Uuid | null,
+    private _tenantId: Uuid | null,
     private readonly _tenantName: string | null,
     private _tenantPhone: TenantPhone | null,
     private readonly _joinedAt: Date,
@@ -147,6 +148,22 @@ export class ContractMember extends AggregateRoot {
     return (
       this._leftAt === null || this._leftAt.getTime() > startOfDay.getTime()
     );
+  }
+
+  linkTenant(userId: Uuid, phone: TenantPhone): boolean {
+    if (
+      this.isDeleted ||
+      this._tenantId !== null ||
+      !this._tenantPhone?.equals(phone)
+    ) {
+      return false;
+    }
+    this._tenantId = userId;
+    this.touch();
+    this.addDomainEvent(
+      new ContractMemberLinkedEvent(this.id, this.contractId, userId),
+    );
+    return true;
   }
 
   updatePhone(phone: TenantPhone | null): void {

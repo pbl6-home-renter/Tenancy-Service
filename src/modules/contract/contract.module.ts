@@ -3,6 +3,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { CqrsModule } from '@nestjs/cqrs';
 import { InternalHttpModule } from 'shared/infrastructure/http/internal-http.module';
 import { OutboxModule } from 'modules/outbox/outbox.module';
+import { InboxModule } from 'modules/inbox/inbox.module';
+import { IdentityLifecycleSubscriber } from './presentation/messaging/identity-lifecycle.subscriber';
 import { RoomModule } from 'modules/room/room.module';
 import { CONTRACT_DI_TOKEN } from './contract.di-token';
 import { ContractTypeormEntity } from './infrastructure/persistence/contract.entity';
@@ -61,6 +63,7 @@ const queryHandlers = [
     ]),
     RoomModule,
     OutboxModule,
+    InboxModule,
     InternalHttpModule,
   ],
   controllers: [
@@ -70,6 +73,7 @@ const queryHandlers = [
     ContractMemberController,
   ],
   providers: [
+    IdentityLifecycleSubscriber,
     {
       provide: CONTRACT_DI_TOKEN.SETTLEMENT,
       useClass: ContractSettlementAdapter,
