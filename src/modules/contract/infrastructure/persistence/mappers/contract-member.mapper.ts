@@ -23,7 +23,7 @@ export class ContractMemberMapper {
       contractId: member.contractId,
       tenantId: member.tenantId,
       tenantName: member.tenantName,
-      tenantPhone: member.tenantPhone?.value ?? null,
+      tenantPhone: member.tenantPhone?.normalizedValue ?? null,
       joinedAt: member.joinedAt,
       leftAt: member.leftAt,
       createdAt: member.createdAt,

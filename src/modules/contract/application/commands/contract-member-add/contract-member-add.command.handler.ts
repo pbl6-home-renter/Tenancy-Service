@@ -6,6 +6,8 @@ import { OUTBOX_DI_TOKEN } from 'modules/outbox/outbox.di-token';
 import { UNIT_OF_WORK_DI_TOKEN } from 'shared/application/di-tokens';
 import { IUnitOfWork } from 'shared/application/ports/unit-of-work.port';
 import { CONTRACT_DI_TOKEN } from '../../../contract.di-token';
+import { TenantUserProjectionPort } from '../../ports/tenant-user-projection.port';
+import { TenantPhone } from '../../../domain/value-objects/tenant-phone.vo';
 import { ContractMember } from '../../../domain/entities/contract-member.entity';
 import { ContractRepository } from '../../../domain/repositories/contract.repository';
 import { ContractMemberRepository } from '../../../domain/repositories/contract-member.repository';
@@ -23,6 +25,8 @@ export class ContractMemberAddCommandHandler implements ICommandHandler<
   ContractMember
 > {
   constructor(
+    @Inject(CONTRACT_DI_TOKEN.TENANT_USER_PROJECTION)
+    private readonly tenantUsers: TenantUserProjectionPort,
     @Inject(CONTRACT_DI_TOKEN.REPOSITORY)
     private readonly contracts: ContractRepository,
     @Inject(CONTRACT_DI_TOKEN.MEMBER_REPOSITORY)
@@ -34,6 +38,13 @@ export class ContractMemberAddCommandHandler implements ICommandHandler<
 
   execute(command: ContractMemberAddCommand): Promise<ContractMember> {
     return this.unitOfWork.run(async (context) => {
+      const phone =
+        command.input.tenantPhone === null
+          ? null
+          : TenantPhone.create(command.input.tenantPhone);
+      if (phone !== null && command.input.tenantId === null) {
+        await this.tenantUsers.lockPhone(phone, context);
+      }
       const contract = await this.contracts.findByIdForUpdate(
         command.input.contractId,
         context,
@@ -44,7 +55,12 @@ export class ContractMemberAddCommandHandler implements ICommandHandler<
         throw new ContractForbiddenException();
       if (contract.status !== ContractStatus.ACTIVE)
         throw new ContractNotActiveException();
-      const member = ContractMember.add(command.input);
+      const tenantId =
+        command.input.tenantId ??
+        (phone === null
+          ? null
+          : await this.tenantUsers.findTenantIdByPhone(phone, context));
+      const member = ContractMember.add({ ...command.input, tenantId });
       const joinedAt = member.joinedAt.getTime();
       if (
         joinedAt < new Date(contract.startDate).getTime() ||

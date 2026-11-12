@@ -52,7 +52,7 @@ export class TypeOrmContractMemberRepository implements ContractMemberRepository
       .andWhere('contract.isDeleted = false')
       .andWhere('member.isDeleted = false')
       .andWhere('member.tenantId IS NULL')
-      .andWhere('member.tenantPhone = :phone', {
+      .andWhere("regexp_replace(member.tenantPhone, '^[+]84', '0') = :phone", {
         phone: phone.normalizedValue,
       })
       .orderBy('member.contractId', 'ASC')
@@ -164,9 +164,13 @@ export class TypeOrmContractMemberRepository implements ContractMemberRepository
             tenantId: match.tenantId,
           });
         if (match.tenantPhone !== null)
-          builder.orWhere('member.tenantPhone = :tenantPhone', {
-            tenantPhone: match.tenantPhone,
-          });
+          builder.orWhere(
+            "regexp_replace(member.tenantPhone, '^[+]84', '0') = :tenantPhone",
+            {
+              tenantPhone: TenantPhone.create(match.tenantPhone)
+                .normalizedValue,
+            },
+          );
       }),
     );
     if (match.excludeId)

@@ -6,6 +6,7 @@ import { OUTBOX_DI_TOKEN } from 'modules/outbox/outbox.di-token';
 import { UNIT_OF_WORK_DI_TOKEN } from 'shared/application/di-tokens';
 import { IUnitOfWork } from 'shared/application/ports/unit-of-work.port';
 import { CONTRACT_DI_TOKEN } from '../../../contract.di-token';
+import { TenantUserProjectionPort } from '../../ports/tenant-user-projection.port';
 import { ContractMember } from '../../../domain/entities/contract-member.entity';
 import { ContractRepository } from '../../../domain/repositories/contract.repository';
 import { ContractMemberRepository } from '../../../domain/repositories/contract-member.repository';
@@ -21,6 +22,8 @@ export class ContractMemberUpdateCommandHandler implements ICommandHandler<
   ContractMember
 > {
   constructor(
+    @Inject(CONTRACT_DI_TOKEN.TENANT_USER_PROJECTION)
+    private readonly tenantUsers: TenantUserProjectionPort,
     @Inject(CONTRACT_DI_TOKEN.REPOSITORY)
     private readonly contracts: ContractRepository,
     @Inject(CONTRACT_DI_TOKEN.MEMBER_REPOSITORY)
@@ -32,6 +35,9 @@ export class ContractMemberUpdateCommandHandler implements ICommandHandler<
 
   execute(command: ContractMemberUpdateCommand): Promise<ContractMember> {
     return this.unitOfWork.run(async (context) => {
+      if (command.tenantPhone !== null) {
+        await this.tenantUsers.lockPhone(command.tenantPhone, context);
+      }
       const contract = await this.contracts.findByIdForUpdate(
         command.contractId,
         context,
@@ -39,14 +45,31 @@ export class ContractMemberUpdateCommandHandler implements ICommandHandler<
       if (!contract) throw new ContractNotFoundException(command.contractId);
       if (contract.landlordId !== command.landlordId)
         throw new ContractForbiddenException();
-      const contractMember =
-        await this.members.findByTenantAndContractForUpdate(
+      let contractMember = await this.members.findByTenantAndContractForUpdate(
+        command.tenantId,
+        contract.id,
+        context,
+      );
+      if (!contractMember) {
+        const memberById = await this.members.findByIdForUpdate(
           command.tenantId,
-          contract.id,
           context,
         );
+        if (memberById?.contractId === contract.id) {
+          contractMember = memberById;
+        }
+      }
       if (!contractMember) throw new ContractMemberNotFoundException();
       contractMember.updatePhone(command.tenantPhone);
+      if (contractMember.tenantId === null && command.tenantPhone !== null) {
+        const tenantId = await this.tenantUsers.findTenantIdByPhone(
+          command.tenantPhone,
+          context,
+        );
+        if (tenantId !== null) {
+          contractMember.linkTenant(tenantId, command.tenantPhone);
+        }
+      }
       if (
         await this.members.existsActiveDuplicate(
           contract.id,

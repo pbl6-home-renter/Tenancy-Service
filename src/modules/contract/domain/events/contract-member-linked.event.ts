@@ -15,6 +15,7 @@ export class ContractMemberLinkedEvent implements DomainEvent {
     readonly aggregateId: Uuid,
     readonly contractId: Uuid,
     readonly tenantUserId: Uuid,
+    readonly joinedAt: Date,
   ) {}
 
   get payload(): Record<string, unknown> {
@@ -22,6 +23,7 @@ export class ContractMemberLinkedEvent implements DomainEvent {
       contractId: this.contractId,
       contractMemberId: this.aggregateId,
       tenantUserId: this.tenantUserId,
+      joinedAt: this.joinedAt.toISOString().slice(0, 10),
     };
   }
 }

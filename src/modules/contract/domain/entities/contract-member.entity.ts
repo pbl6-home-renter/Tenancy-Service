@@ -161,7 +161,12 @@ export class ContractMember extends AggregateRoot {
     this._tenantId = userId;
     this.touch();
     this.addDomainEvent(
-      new ContractMemberLinkedEvent(this.id, this.contractId, userId),
+      new ContractMemberLinkedEvent(
+        this.id,
+        this.contractId,
+        userId,
+        this.joinedAt,
+      ),
     );
     return true;
   }

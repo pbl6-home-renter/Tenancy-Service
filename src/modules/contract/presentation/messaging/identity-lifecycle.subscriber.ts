@@ -15,24 +15,28 @@ import { TransactionContext } from 'shared/domain/repositories/transaction-conte
 import { isValidUuid } from 'shared/domain/value-objects/uuid.vo';
 import { ConsumerRegistry } from 'shared/infrastructure/messaging/rabbitmq/consumer/consumer-registry';
 import { CONTRACT_DI_TOKEN } from '../../contract.di-token';
+import { TenantUserProjectionPort } from '../../application/ports/tenant-user-projection.port';
 import { ContractMemberRepository } from '../../domain/repositories/contract-member.repository';
 import { ContractRepository } from '../../domain/repositories/contract.repository';
 import { TenantPhone } from '../../domain/value-objects/tenant-phone.vo';
 import {
-  UserIdentityLifecyclePayload,
+  UserLifecycleIntegrationEvent,
   UserRegisteredIntegrationEvent,
 } from './user-registered.integration-event';
-import { UserEmailVerifiedIntegrationEvent } from './user-email-verified.integration-event';
 import {
   IDENTITY_LIFECYCLE_CONSUMER_NAME,
   IDENTITY_LIFECYCLE_CONSUMER_QUEUE,
   USER_REGISTERED_EVENT,
+  USER_UPDATED_EVENT,
+  USER_DELETED_EVENT,
   USER_EMAIL_VERIFIED_EVENT,
 } from './identity-lifecycle-consumer.constants';
 
 @Injectable()
 export class IdentityLifecycleSubscriber {
   constructor(
+    @Inject(CONTRACT_DI_TOKEN.TENANT_USER_PROJECTION)
+    private readonly tenantUsers: TenantUserProjectionPort,
     @Inject(CONTRACT_DI_TOKEN.REPOSITORY)
     private readonly contracts: ContractRepository,
     @Inject(CONTRACT_DI_TOKEN.MEMBER_REPOSITORY)
@@ -49,33 +53,37 @@ export class IdentityLifecycleSubscriber {
     name: ConsumerRegistry.define({
       name: IDENTITY_LIFECYCLE_CONSUMER_NAME,
       queue: IDENTITY_LIFECYCLE_CONSUMER_QUEUE,
-      routingKeys: [USER_REGISTERED_EVENT, USER_EMAIL_VERIFIED_EVENT],
+      routingKeys: [
+        USER_REGISTERED_EVENT,
+        USER_UPDATED_EVENT,
+        USER_DELETED_EVENT,
+        USER_EMAIL_VERIFIED_EVENT,
+      ],
     }),
   })
   async handle(event: IntegrationEvent): Promise<void> {
-    if (!this.isRecord(event)) {
-      throw new ValidationException('Invalid identity lifecycle event');
-    }
-    const eventType =
-      event.eventType === USER_REGISTERED_EVENT
-        ? USER_REGISTERED_EVENT
-        : USER_EMAIL_VERIFIED_EVENT;
-    this.assertIdentityUserEvent(event, eventType);
-    const identityEvent = event as
-      UserRegisteredIntegrationEvent | UserEmailVerifiedIntegrationEvent;
+    this.assertUserLifecycleEvent(event);
     await this.handleOnce(event, (context) => {
-      return this.onTenantActivated(identityEvent.payload, context);
+      if (event.eventType === USER_DELETED_EVENT) {
+        return this.tenantUsers.delete(event.payload.userId, context);
+      }
+      return this.onUserChanged(event, context);
     });
   }
 
-  private async onTenantActivated(
-    payload: UserIdentityLifecyclePayload,
+  private async onUserChanged(
+    event: UserRegisteredIntegrationEvent,
     context: TransactionContext,
   ): Promise<void> {
-    const { userId, role, status } = payload;
-    if (role !== UserRole.TENANT || status !== UserStatus.ACTIVE) return;
+    const { userId, role, status } = event.payload;
+    if (role !== UserRole.TENANT || status !== UserStatus.ACTIVE) {
+      await this.tenantUsers.delete(userId, context);
+      return;
+    }
 
-    const phone = TenantPhone.create(payload.phone.trim());
+    const phone = TenantPhone.create(event.payload.phone.trim());
+    await this.tenantUsers.lockPhone(phone, context);
+    await this.tenantUsers.upsert(userId, phone, context);
     const contracts = await this.contracts.findUnlinkedByPhoneForUpdate(
       phone,
       context,
@@ -130,25 +138,33 @@ export class IdentityLifecycleSubscriber {
     });
   }
 
-  private assertIdentityUserEvent(
+  private assertUserLifecycleEvent(
     event: unknown,
-    expectedEventType: string,
-  ): asserts event is
-    UserRegisteredIntegrationEvent | UserEmailVerifiedIntegrationEvent {
+  ): asserts event is UserLifecycleIntegrationEvent {
     if (
       !this.isRecord(event) ||
       typeof event.id !== 'string' ||
       !isValidUuid(event.id) ||
-      event.eventType !== expectedEventType ||
-      event.routingKey !== expectedEventType ||
+      ![
+        USER_REGISTERED_EVENT,
+        USER_UPDATED_EVENT,
+        USER_DELETED_EVENT,
+        USER_EMAIL_VERIFIED_EVENT,
+      ].includes(event.eventType as string) ||
+      event.routingKey !== event.eventType ||
       !this.isRecord(event.payload) ||
       typeof event.payload.userId !== 'string' ||
-      !isValidUuid(event.payload.userId) ||
-      typeof event.payload.phone !== 'string' ||
-      !Object.values(UserRole).includes(event.payload.role as UserRole) ||
-      !Object.values(UserStatus).includes(event.payload.status as UserStatus)
+      !isValidUuid(event.payload.userId)
     ) {
-      throw new ValidationException('Invalid identity lifecycle event');
+      throw new ValidationException('Invalid user lifecycle integration event');
+    }
+    if (
+      event.eventType !== USER_DELETED_EVENT &&
+      (typeof event.payload.phone !== 'string' ||
+        !Object.values(UserRole).includes(event.payload.role as UserRole) ||
+        !Object.values(UserStatus).includes(event.payload.status as UserStatus))
+    ) {
+      throw new ValidationException('Invalid user lifecycle integration event');
     }
   }
 
