@@ -323,6 +323,29 @@ Mọi đường dẫn dưới prefix `/api/v1`.
 > [!NOTE]
 > Endpoint nội bộ (service-to-service) đặt dưới `internal/...`, nằm ngoài prefix `api/v1` nên gateway không route tới; xác thực bằng `@InternalOnly()` + `X-Service-Token`.
 
+## Link ContractMember với account tenant
+
+Consumer P9-01 `tenancy.identity-lifecycle` nhận `user.registered`, `user.updated`, `user.deleted`. Projection `tenant_user_projections` lưu mapping `userId`–phone chuẩn hóa của tenant `active`. Registered/updated upsert mapping và reconcile các contract/member có `tenantId = NULL`; deleted chỉ xóa mapping tra cứu. Liên kết đã có được giữ nguyên.
+
+Add/update ContractMember tra projection theo phone trong cùng transaction với lưu member và append outbox. Không tìm thấy thì giữ `tenantId = NULL`; đăng ký sau được consumer P9-01 reconcile. Member đã link không chuyển sang account khác khi phone đổi. Route `PATCH /contract-members/:tenantId` nhận tenant user ID hoặc member ID để sửa member chưa link; member ID vẫn dùng được khi gửi lại request sau khi link.
+
+Projection và member mutation khóa cùng phone chuẩn hóa trước khi khóa contract, theo mẫu advisory lock đang dùng cho invoice idempotency, để registration và add/update đồng thời không bỏ sót liên kết.
+
+| Routing key | Queue Community | Payload dùng cho membership |
+|---|---|---|
+| `contract_member.added` | `community.contract-context` | `contractId`, `contractMemberId`, `tenantUserId` (nullable), `joinedAt` |
+| `contract_member.linked` | `community.contract-context` | `contractId`, `contractMemberId`, `tenantUserId`, `joinedAt` |
+
+`added` giữ các field `id`, `tenantId` hiện có và bổ sung `contractMemberId`, `tenantUserId` cho consumer. `linked` chỉ phát khi member NULL được link. Các event này không chứa phone.
+
+Trước khi chạy phiên bản này, generate và kiểm tra migration trong Tenancy:
+
+```bash
+npm run migration:generate -- src/database/migrations/CreateTenantUserProjectionsTable
+```
+
+Giữ phần tạo bảng/index `tenant_user_projections`, bỏ thay đổi schema ngoài phạm vi ở cả `up` và `down`, rồi chạy migration theo quy trình dự án. Migration chưa được generate trong thay đổi này. Projection được xây từ lifecycle event nhận sau khi triển khai; dữ liệu account lịch sử cần được nạp theo nguồn lifecycle đã thống nhất trước khi kiểm tra luồng account cũ.
+
 ## Triển khai
 
 - **CI/CD** — [`deploy.yml`](.github/workflows/deploy.yml) chạy khi push `main` (hoặc `workflow_dispatch`): build image `linux/amd64`, push `<DOCKERHUB_USERNAME>/tenancy-service:latest`, rồi SSH vào EC2 và chạy `DEPLOY_STACK=internal bash ./scripts/deploy.sh tenancy` trong repo [`infra`](https://github.com/pbl6-home-renter/infra). Bước deploy tự bỏ qua nếu thiếu secret `EC2_HOST`/`EC2_SSH_KEY`.

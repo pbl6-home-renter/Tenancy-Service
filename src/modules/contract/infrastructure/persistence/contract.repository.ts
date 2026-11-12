@@ -55,17 +55,19 @@ export class TypeOrmContractRepository implements ContractRepository {
       .andWhere({
         isDeleted: false,
         tenantId: IsNull(),
-        tenantPhone: phone.normalizedValue,
+      })
+      .andWhere("regexp_replace(member.tenantPhone, '^[+]84', '0') = :phone", {
+        phone: phone.normalizedValue,
       });
 
     const rows = await query
       .andWhere(
         new Brackets((where) => {
           where
-            .where({
-              tenantId: IsNull(),
-              tenantPhone: phone.normalizedValue,
-            })
+            .where(
+              "contract.tenantId IS NULL AND regexp_replace(contract.tenantPhone, '^[+]84', '0') = :phone",
+              { phone: phone.normalizedValue },
+            )
             .orWhere(`EXISTS ${matchingMember.getQuery()}`);
         }),
       )

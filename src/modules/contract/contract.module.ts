@@ -5,6 +5,8 @@ import { InternalHttpModule } from 'shared/infrastructure/http/internal-http.mod
 import { OutboxModule } from 'modules/outbox/outbox.module';
 import { InboxModule } from 'modules/inbox/inbox.module';
 import { IdentityLifecycleSubscriber } from './presentation/messaging/identity-lifecycle.subscriber';
+import { TenantUserProjectionTypeormEntity } from './infrastructure/persistence/tenant-user-projection.typeorm-entity';
+import { TypeOrmTenantUserProjectionRepository } from './infrastructure/persistence/tenant-user-projection.repository';
 import { RoomModule } from 'modules/room/room.module';
 import { CONTRACT_DI_TOKEN } from './contract.di-token';
 import { ContractTypeormEntity } from './infrastructure/persistence/contract.entity';
@@ -57,6 +59,7 @@ const queryHandlers = [
   imports: [
     CqrsModule,
     TypeOrmModule.forFeature([
+      TenantUserProjectionTypeormEntity,
       ContractMemberTypeormEntity,
       ContractTypeormEntity,
       ContractTemplateTypeormEntity,
@@ -74,6 +77,10 @@ const queryHandlers = [
   ],
   providers: [
     IdentityLifecycleSubscriber,
+    {
+      provide: CONTRACT_DI_TOKEN.TENANT_USER_PROJECTION,
+      useClass: TypeOrmTenantUserProjectionRepository,
+    },
     {
       provide: CONTRACT_DI_TOKEN.SETTLEMENT,
       useClass: ContractSettlementAdapter,

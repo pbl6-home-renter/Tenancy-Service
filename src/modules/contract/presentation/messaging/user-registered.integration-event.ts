@@ -2,6 +2,12 @@ import { IntegrationEvent } from 'shared/application/messaging/integration-event
 import { UserRole } from 'shared/domain/enums/user-role.enum';
 import { UserStatus } from 'shared/domain/enums/user-status.enum';
 import { Uuid } from 'shared/domain/value-objects/uuid.vo';
+import {
+  USER_REGISTERED_EVENT,
+  USER_UPDATED_EVENT,
+  USER_DELETED_EVENT,
+  USER_EMAIL_VERIFIED_EVENT,
+} from './identity-lifecycle-consumer.constants';
 
 export type UserIdentityLifecyclePayload = {
   userId: Uuid;
@@ -12,3 +18,14 @@ export type UserIdentityLifecyclePayload = {
 
 export type UserRegisteredIntegrationEvent =
   IntegrationEvent<UserIdentityLifecyclePayload>;
+
+export type UserLifecycleIntegrationEvent =
+  | (UserRegisteredIntegrationEvent & {
+      eventType:
+        | typeof USER_REGISTERED_EVENT
+        | typeof USER_UPDATED_EVENT
+        | typeof USER_EMAIL_VERIFIED_EVENT;
+    })
+  | (IntegrationEvent<{ userId: Uuid }> & {
+      eventType: typeof USER_DELETED_EVENT;
+    });

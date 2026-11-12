@@ -110,7 +110,12 @@ export class ContractMemberController {
     operationId: 'patchContractMembersTenantid',
     summary: 'Update member phone',
   })
-  @ApiParam({ name: 'tenantId', type: String, format: 'uuid' })
+  @ApiParam({
+    name: 'tenantId',
+    type: String,
+    format: 'uuid',
+    description: 'Tenant user ID or contract member ID',
+  })
   @ApiSuccessResponse({
     code: Code.CONTRACT_MEMBER_UPDATED,
     dataDto: ContractMemberUpdateResponseDto,
