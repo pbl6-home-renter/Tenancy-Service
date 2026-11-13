@@ -10,6 +10,7 @@ import { BuildingCreatedEvent } from '../events/building-created.event';
 import { BuildingUpdatedEvent } from '../events/building-updated.event';
 import { BuildingApprovedEvent } from '../events/building-approved.event';
 import { BuildingRejectedEvent } from '../events/building-rejected.event';
+import { BuildingReviewNotificationRequestedEvent } from '../events/building-review-notification-requested.event';
 import { BuildingDeletedEvent } from '../events/building-deleted.event';
 import { ApprovedBuildingLockedException } from '../exceptions/approved-building-locked.exception';
 import { BuildingNotFoundException } from '../exceptions/building-not-found.exception';
@@ -221,6 +222,15 @@ export class BuildingEntity extends AggregateRoot {
         this.note,
       ),
     );
+    this.addDomainEvent(
+      new BuildingReviewNotificationRequestedEvent(
+        this.id,
+        this.landlordId,
+        this.name,
+        BuildingStatus.APPROVED,
+        null,
+      ),
+    );
   }
 
   reject(reviewedBy: Uuid, note: string): void {
@@ -230,6 +240,15 @@ export class BuildingEntity extends AggregateRoot {
         this.id,
         reviewedBy,
         reviewedAt.toISOString(),
+        note,
+      ),
+    );
+    this.addDomainEvent(
+      new BuildingReviewNotificationRequestedEvent(
+        this.id,
+        this.landlordId,
+        this.name,
+        BuildingStatus.REJECTED,
         note,
       ),
     );
