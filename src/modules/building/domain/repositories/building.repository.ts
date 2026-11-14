@@ -8,6 +8,7 @@ import { BuildingStatus } from '../enums/building-status.enum';
 
 export type MyBuildingFilter = {
   status?: BuildingStatus;
+  search?: string;
 };
 
 export type PublicBuildingFilter = {

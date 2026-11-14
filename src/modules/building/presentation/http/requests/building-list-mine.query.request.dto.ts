@@ -1,12 +1,13 @@
 import { Uuid } from 'shared/domain/value-objects/uuid.vo';
 import { BuildingListMineQuery } from '../../../application/queries/building-list-mine/building-list-mine.query';
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsIn,
   IsObject,
   IsOptional,
   IsString,
+  MaxLength,
   ValidateNested,
 } from 'class-validator';
 import { OffsetPaginationQueryRequestDto } from 'shared/presentation/pagination/offset-pagination.request.dto';
@@ -18,6 +19,15 @@ export class MyBuildingFilterRequestDto implements MyBuildingFilter {
   @IsOptional()
   @IsIn(Object.values(BuildingStatus))
   status?: BuildingStatus;
+
+  @ApiPropertyOptional({ type: String, maxLength: 100 })
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() || undefined : value,
+  )
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  search?: string;
 }
 
 export class BuildingListMineQueryRequestDto extends OffsetPaginationQueryRequestDto<MyBuildingFilter> {

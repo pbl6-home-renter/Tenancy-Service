@@ -17,6 +17,7 @@ import {
 import { BuildingStatus } from '../../domain/enums/building-status.enum';
 import { BuildingTypeormEntity } from './building.typeorm-entity';
 import { BuildingMapper } from './mappers/building.mapper';
+import { escapeLikePattern } from './escape-like-pattern';
 
 @Injectable()
 export class TypeOrmBuildingRepository implements BuildingRepository {
@@ -135,6 +136,14 @@ export class TypeOrmBuildingRepository implements BuildingRepository {
 
     if (query.filter?.status) {
       qb.andWhere('building.status = :status', { status: query.filter.status });
+    }
+
+    const search = query.filter?.search?.trim();
+    if (search) {
+      qb.andWhere(
+        "(building.name ILIKE :search ESCAPE E'\\\\' OR building.address ILIKE :search ESCAPE E'\\\\')",
+        { search: `%${escapeLikePattern(search)}%` },
+      );
     }
 
     return TypeOrmPaginator.offset(qb, query)
