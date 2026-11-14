@@ -15,6 +15,7 @@ import { MeterReadingModule } from 'modules/meter-reading/meter-reading.module';
 import { InvoiceModule } from 'modules/invoice/invoice.module';
 import { AdministrativeUnitModule } from 'modules/administrative-unit/administrative-unit.module';
 import { MediaOwnershipModule } from 'modules/media/media-ownership.module';
+import { IssueContextModule } from 'modules/issue-context/issue-context.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { MediaOwnershipModule } from 'modules/media/media-ownership.module';
     BuildingModule,
     AdministrativeUnitModule,
     MediaOwnershipModule,
+    IssueContextModule,
   ],
   providers: [
     {
