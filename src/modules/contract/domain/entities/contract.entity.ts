@@ -39,6 +39,7 @@ export class ContractEntity extends AggregateRoot {
     private _status: ContractStatus,
     private _description: string | null,
     private _activatedAt: Date | null,
+    private _templateKey: string | null,
     private _signedContractMedia: MediaReference[],
     createdAt: Date,
     updatedAt: Date,
@@ -55,6 +56,7 @@ export class ContractEntity extends AggregateRoot {
       status: ContractStatus.DRAFT,
       description: null,
       activatedAt: null,
+      templateKey: null,
       signedContractMediaIds: [],
       createdAt: now,
       updatedAt: now,
@@ -78,6 +80,11 @@ export class ContractEntity extends AggregateRoot {
       throw new ValidationException('Invalid contract status');
     }
     ContractEntity.assertNullableText('description', props.description, 500);
+    ContractEntity.assertNullableText(
+      'templateKey',
+      props.templateKey ?? null,
+      100,
+    );
     if (props.activatedAt !== null) {
       ContractEntity.assertTimestamp('activatedAt', props.activatedAt);
     }
@@ -99,6 +106,7 @@ export class ContractEntity extends AggregateRoot {
       props.status,
       props.description,
       props.activatedAt === null ? null : new Date(props.activatedAt),
+      props.templateKey ?? null,
       (props.signedContractMediaIds ?? []).map(MediaReference.create),
       new Date(props.createdAt),
       new Date(props.updatedAt),
@@ -179,6 +187,17 @@ export class ContractEntity extends AggregateRoot {
 
   get activatedAt(): Date | null {
     return this._activatedAt === null ? null : new Date(this._activatedAt);
+  }
+
+  get templateKey(): string | null {
+    return this._templateKey;
+  }
+
+  applyTemplate(templateKey: string): void {
+    this.assertDraft();
+    ContractEntity.assertText('templateKey', templateKey, 100);
+    this._templateKey = templateKey;
+    this.recordUpdate();
   }
 
   get signedContractMediaIds(): Uuid[] {

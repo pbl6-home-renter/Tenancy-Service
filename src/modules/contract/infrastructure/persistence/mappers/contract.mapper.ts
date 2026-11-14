@@ -18,6 +18,7 @@ export class ContractMapper {
       vehicleCount: raw.vehicleCount,
       description: raw.description,
       activatedAt: raw.activatedAt,
+      templateKey: raw.templateKey,
       signedContractMediaIds: raw.signedContractMediaIds ?? [],
       createdAt: raw.createdAt,
       updatedAt: raw.updatedAt,
@@ -41,6 +42,7 @@ export class ContractMapper {
     raw.vehicleCount = contract.vehicleCount;
     raw.description = contract.description;
     raw.activatedAt = contract.activatedAt;
+    raw.templateKey = contract.templateKey;
     raw.signedContractMediaIds = contract.signedContractMediaIds;
     raw.createdAt = contract.createdAt;
     raw.updatedAt = contract.updatedAt;

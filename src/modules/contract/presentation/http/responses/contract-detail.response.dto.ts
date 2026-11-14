@@ -13,6 +13,9 @@ export class ContractDetailResponseDto {
   @ApiProperty({ enum: ContractStatus })
   status: ContractStatus;
 
+  @ApiProperty({ type: String, nullable: true })
+  templateKey: string | null;
+
   @ApiProperty({ type: String, format: 'uuid', nullable: true })
   tenantId: Uuid | null;
 
@@ -69,6 +72,7 @@ export class ContractDetailResponseDto {
     response.id = contract.id;
     response.roomId = contract.roomId;
     response.status = contract.status;
+    response.templateKey = contract.templateKey;
     response.tenantId = contract.tenantId;
     response.tenantName = contract.tenantName;
     response.tenantPhone = contract.tenantPhone;

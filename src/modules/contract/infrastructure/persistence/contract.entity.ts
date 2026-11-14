@@ -90,6 +90,9 @@ export class ContractTypeormEntity extends AbstractEntity {
   @Column({ type: 'timestamptz', nullable: true })
   activatedAt: Date | null;
 
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  templateKey: string | null;
+
   @Column({ type: 'uuid', array: true, default: () => "'{}'" })
   signedContractMediaIds: Uuid[];
 }

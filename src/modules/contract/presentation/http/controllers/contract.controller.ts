@@ -8,6 +8,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
 } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
@@ -30,6 +31,7 @@ import { PaginatedResponseDto } from 'shared/presentation/pagination/paginated.r
 import { ContractActivateCommand } from '../../../application/commands/contract-activate/contract-activate.command';
 import { ContractCreateCommand } from '../../../application/commands/contract-create/contract-create.command';
 import { ContractUpdateCommand } from '../../../application/commands/contract-update/contract-update.command';
+import { ContractTemplateApplyCommand } from '../../../application/commands/contract-template-apply/contract-template-apply.command';
 import { ContractCheckoutCompleteCommand } from '../../../application/commands/contract-checkout-complete/contract-checkout-complete.command';
 import { ContractGetByIdQuery } from '../../../application/queries/contract-get-by-id/contract-get-by-id.query';
 import { ContractListQuery } from '../../../application/queries/contract-list/contract-list.query';
@@ -40,6 +42,7 @@ import { ActivateContractRequest } from '../requests/activate-contract.request';
 import { CreateContractRequest } from '../requests/create-contract.request';
 import { ListContractsQueryRequestDto } from '../requests/list-contracts.query.request.dto';
 import { UpdateContractRequest } from '../requests/update-contract.request';
+import { ApplyContractTemplateRequest } from '../requests/apply-contract-template.request';
 import { CompleteContractCheckoutRequest } from '../requests/complete-contract-checkout.request';
 import { ContractActivateResponseDto } from '../responses/contract-activate.response.dto';
 import { ContractCreateResponseDto } from '../responses/contract-create.response.dto';
@@ -122,6 +125,37 @@ export class ContractController {
       ContractGetByIdQuery,
       ContractEntity
     >(new ContractGetByIdQuery(contractId, user));
+    return ContractDetailResponseDto.fromDomain(contract);
+  }
+
+  @Put(':contractId/apply-template')
+  @Roles(UserRole.LANDLORD)
+  @HttpCode(HttpStatus.OK)
+  @ResponseCode(ContractResponseCodeConstant.CONTRACT_TEMPLATE_APPLIED)
+  @ApiOperation({
+    operationId: 'putContractsContractidApplyTemplate',
+    summary: 'Apply a template to a draft contract',
+  })
+  @ApiParam({ name: 'contractId', type: String, format: 'uuid' })
+  @ApiSuccessResponse({
+    code: ContractResponseCodeConstant.CONTRACT_TEMPLATE_APPLIED,
+    dataDto: ContractDetailResponseDto,
+  })
+  async applyTemplate(
+    @Param('contractId', ParseUUIDPipe) contractId: Uuid,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() request: ApplyContractTemplateRequest,
+  ): Promise<ContractDetailResponseDto> {
+    const contract = await this.commandBus.execute<
+      ContractTemplateApplyCommand,
+      ContractEntity
+    >(
+      new ContractTemplateApplyCommand(
+        contractId,
+        user.id,
+        request.templateKey,
+      ),
+    );
     return ContractDetailResponseDto.fromDomain(contract);
   }
 
