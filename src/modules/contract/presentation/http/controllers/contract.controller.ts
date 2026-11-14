@@ -10,6 +10,7 @@ import {
   Post,
   Put,
   Query,
+  StreamableFile,
 } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import {
@@ -17,6 +18,7 @@ import {
   ApiOperation,
   ApiParam,
   ApiResponse,
+  ApiProduces,
   ApiTags,
 } from '@nestjs/swagger';
 import { AuthenticatedUser } from 'shared/application/auth/authenticated-user';
@@ -36,6 +38,8 @@ import { ContractCheckoutCompleteCommand } from '../../../application/commands/c
 import { ContractGetByIdQuery } from '../../../application/queries/contract-get-by-id/contract-get-by-id.query';
 import { ContractListQuery } from '../../../application/queries/contract-list/contract-list.query';
 import { ContractListResult } from '../../../application/queries/contract-list/contract-list.result';
+import { ContractDraftDocumentGenerateQuery } from '../../../application/queries/contract-draft-document-generate/contract-draft-document-generate.query';
+import { DraftDocument } from '../../../application/queries/contract-draft-document-generate/contract-draft-document-generate.query.handler';
 import { ContractEntity } from '../../../domain/entities/contract.entity';
 import { ContractResponseCodeConstant } from '../constants/contract-response-code.constant';
 import { ActivateContractRequest } from '../requests/activate-contract.request';
@@ -58,7 +62,7 @@ export class ContractController {
   constructor(
     private readonly commandBus: CommandBus,
     private readonly queryBus: QueryBus,
-  ) {}
+  ) { }
 
   @Post()
   @Roles(UserRole.LANDLORD)
@@ -126,6 +130,33 @@ export class ContractController {
       ContractEntity
     >(new ContractGetByIdQuery(contractId, user));
     return ContractDetailResponseDto.fromDomain(contract);
+  }
+
+  @Post(':contractId/generate-draft-document')
+  @Roles(UserRole.LANDLORD)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    operationId: 'postContractsContractidGenerateDraftDocument',
+    summary: 'Generate a draft contract PDF',
+  })
+  @ApiParam({ name: 'contractId', type: String, format: 'uuid' })
+  @ApiProduces('application/pdf')
+  @ApiResponse({
+    status: HttpStatus.OK,
+    schema: { type: 'string', format: 'binary' },
+  })
+  async generateDraftDocument(
+    @Param('contractId', ParseUUIDPipe) contractId: Uuid,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<StreamableFile> {
+    const document = await this.queryBus.execute<
+      ContractDraftDocumentGenerateQuery,
+      DraftDocument
+    >(new ContractDraftDocumentGenerateQuery(contractId, user.id));
+    return new StreamableFile(document.data, {
+      type: 'application/pdf',
+      disposition: `attachment; filename="${document.filename}"`,
+    });
   }
 
   @Put(':contractId/apply-template')

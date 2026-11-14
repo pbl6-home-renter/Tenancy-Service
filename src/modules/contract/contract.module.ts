@@ -8,6 +8,9 @@ import { IdentityLifecycleSubscriber } from './presentation/messaging/identity-l
 import { TenantUserProjectionTypeormEntity } from './infrastructure/persistence/tenant-user-projection.typeorm-entity';
 import { TypeOrmTenantUserProjectionRepository } from './infrastructure/persistence/tenant-user-projection.repository';
 import { RoomModule } from 'modules/room/room.module';
+import { BuildingModule } from 'modules/building/building.module';
+import { BillingSettingModule } from 'modules/billing-setting/billing-setting.module';
+import { ContractDraftDocumentGenerateQueryHandler } from './application/queries/contract-draft-document-generate/contract-draft-document-generate.query.handler';
 import { CONTRACT_DI_TOKEN } from './contract.di-token';
 import { ContractTypeormEntity } from './infrastructure/persistence/contract.entity';
 import { TypeOrmContractRepository } from './infrastructure/persistence/contract.repository';
@@ -51,6 +54,7 @@ const commandHandlers = [
   ContractActivateCommandHandler,
 ];
 const queryHandlers = [
+  ContractDraftDocumentGenerateQueryHandler,
   ContractMyListQueryHandler,
   ContractMemberListQueryHandler,
   UserAvatarLookupQueryHandler,
@@ -70,6 +74,8 @@ const queryHandlers = [
       ContractTemplateTypeormEntity,
     ]),
     RoomModule,
+    BuildingModule,
+    BillingSettingModule,
     OutboxModule,
     InboxModule,
     InternalHttpModule,
