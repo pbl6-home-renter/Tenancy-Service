@@ -38,6 +38,11 @@ export interface ContractMemberRepository extends BaseRepository<ContractMember>
     contractId: Uuid,
     context?: TransactionContext,
   ): Promise<ContractMember[]>;
+  findActiveByContractAt(
+    contractId: Uuid,
+    at: Date,
+    context: TransactionContext,
+  ): Promise<ContractMember[]>;
   existsActiveByContractAndTenant(
     contractId: Uuid,
     tenantId: Uuid,

@@ -3,6 +3,7 @@ import { OUTBOX_DI_TOKEN } from 'modules/outbox/outbox.di-token';
 import { OutboxMessage } from 'modules/outbox/domain/entities/outbox-message.entity';
 import { OutboxRepository } from 'modules/outbox/domain/repositories/outbox.repository';
 import { TransactionContext } from 'shared/domain/repositories/transaction-context';
+import { DomainEvent } from 'shared/domain/base/domain-event';
 import { INVOICE_DI_TOKEN } from '../../invoice.di-token';
 import { InvoiceEntity } from '../../domain/entities/invoice.entity';
 import { InvoiceRepository } from '../../domain/repositories/invoice.repository';
@@ -19,12 +20,13 @@ export class InvoicePersistenceService {
   async saveWithEvents(
     invoice: InvoiceEntity,
     context: TransactionContext,
+    additionalEvents: DomainEvent[] = [],
   ): Promise<void> {
     await this.invoices.save(invoice, context);
     await this.outbox.append(
-      invoice
-        .pullDomainEvents()
-        .map((event) => OutboxMessage.fromDomainEvent(event)),
+      [...invoice.pullDomainEvents(), ...additionalEvents].map((event) =>
+        OutboxMessage.fromDomainEvent(event),
+      ),
       context,
     );
   }

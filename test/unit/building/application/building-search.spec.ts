@@ -2,12 +2,15 @@ import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { BuildingListMineQuery } from 'modules/building/application/queries/building-list-mine/building-list-mine.query';
 import { BuildingListMineQueryHandler } from 'modules/building/application/queries/building-list-mine/building-list-mine.query.handler';
+import { BuildingRoomStatsReader } from 'modules/building/application/ports/building-room-stats.port';
 import { BuildingRepository } from 'modules/building/domain/repositories/building.repository';
 import { escapeLikePattern } from 'modules/building/infrastructure/persistence/escape-like-pattern';
 import { MyBuildingFilterRequestDto } from 'modules/building/presentation/http/requests/building-list-mine.query.request.dto';
 import { generateUuid } from 'shared/domain/value-objects/uuid.vo';
 
-jest.mock('@nestjs/swagger', () => ({ ApiPropertyOptional: () => () => undefined }));
+jest.mock('@nestjs/swagger', () => ({
+  ApiPropertyOptional: () => () => undefined,
+}));
 
 describe('building search', () => {
   it('escapes backslash and wildcard characters as literal input', () => {
@@ -36,8 +39,12 @@ describe('building search', () => {
         .fn()
         .mockResolvedValue({ data: [], pagination: {} }),
     };
+    const roomStats = {
+      getStats: jest.fn(async () => new Map()),
+    };
     const handler = new BuildingListMineQueryHandler(
       repository as unknown as BuildingRepository,
+      roomStats as unknown as BuildingRoomStatsReader,
     );
     const landlordId = generateUuid();
     const options = { pageNo: 2, pageSize: 20, filter: { search: 'An Bình' } };
@@ -46,5 +53,6 @@ describe('building search', () => {
       landlordId,
       options,
     );
+    expect(roomStats.getStats).toHaveBeenCalledWith([]);
   });
 });
