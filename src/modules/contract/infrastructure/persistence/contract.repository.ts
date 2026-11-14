@@ -39,6 +39,31 @@ export class TypeOrmContractRepository implements ContractRepository {
     );
   }
 
+  async findForLandlordLockForUpdate(
+    landlordId: Uuid,
+    previousContractIds: Uuid[],
+    context: TransactionContext,
+  ): Promise<ContractEntity[]> {
+    const rows = await withTransaction(this.repository, context).find({
+      where: [
+        { landlordId, status: ContractStatus.ACTIVE, isDeleted: false },
+        ...(previousContractIds.length === 0
+          ? []
+          : [
+              {
+                landlordId,
+                id: In(previousContractIds),
+                status: ContractStatus.SUSPENDED,
+                isDeleted: false,
+              },
+            ]),
+      ],
+      order: { id: 'ASC' },
+      lock: { mode: 'pessimistic_write' },
+    });
+    return rows.map(ContractMapper.toDomain);
+  }
+
   async findUnlinkedByPhoneForUpdate(
     phone: TenantPhone,
     context: TransactionContext,

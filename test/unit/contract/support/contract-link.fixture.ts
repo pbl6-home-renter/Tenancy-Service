@@ -5,10 +5,13 @@ import { TransactionContext } from 'shared/domain/repositories/transaction-conte
 import { generateUuid, Uuid } from 'shared/domain/value-objects/uuid.vo';
 import { IUnitOfWork } from 'shared/application/ports/unit-of-work.port';
 
-export function createContract(tenantId: Uuid | null = null) {
+export function createContract(
+  tenantId: Uuid | null = null,
+  landlordId = generateUuid(),
+) {
   return ContractEntity.reconstitute({
     id: generateUuid(),
-    landlordId: generateUuid(),
+    landlordId,
     roomId: generateUuid(),
     tenantId,
     tenantName: 'Tenant',

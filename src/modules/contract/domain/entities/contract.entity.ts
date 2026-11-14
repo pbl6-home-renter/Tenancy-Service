@@ -236,6 +236,15 @@ export class ContractEntity extends AggregateRoot {
     this.recordUpdate();
   }
 
+  suspend(): void {
+    this.assertNotDeleted();
+    if (this.status !== ContractStatus.ACTIVE) {
+      throw new ContractNotActiveException();
+    }
+    this._status = ContractStatus.SUSPENDED;
+    this.touch();
+  }
+
   terminate(completedOn: Date): void {
     this.assertNotDeleted();
     if (this.status !== ContractStatus.ACTIVE) {

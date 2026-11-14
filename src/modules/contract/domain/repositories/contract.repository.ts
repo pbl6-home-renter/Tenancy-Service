@@ -15,6 +15,11 @@ export interface ContractListFilter {
 }
 
 export interface ContractRepository extends BaseRepository<ContractEntity> {
+  findForLandlordLockForUpdate(
+    landlordId: Uuid,
+    previousContractIds: Uuid[],
+    context: TransactionContext,
+  ): Promise<ContractEntity[]>;
   linkTenantMany(
     ids: Uuid[],
     tenantId: Uuid,
