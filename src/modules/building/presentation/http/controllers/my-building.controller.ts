@@ -26,7 +26,7 @@ import { ResponseCode } from 'shared/presentation/decorators/response-code.decor
 import { PaginatedResponseDto } from 'shared/presentation/pagination/paginated.response.dto';
 import { BuildingGetMineQuery } from '../../../application/queries/building-get-mine/building-get-mine.query';
 import { BuildingListMineQuery } from '../../../application/queries/building-list-mine/building-list-mine.query';
-import { BuildingEntity } from '../../../domain/entities/building.entity';
+import { BuildingWithStats } from '../../../application/ports/building-room-stats.port';
 import { BuildingResponseCodeConstant } from '../constants/building-response-code.constant';
 import {
   BuildingListMineQueryRequestDto,
@@ -68,10 +68,12 @@ export class MyBuildingController {
   ): Promise<PaginatedResponseDto<MyBuildingListResponseDto>> {
     const result = await this.queryBus.execute<
       BuildingListMineQuery,
-      PaginatedResult<BuildingEntity>
+      PaginatedResult<BuildingWithStats>
     >(BuildingListMineQueryRequestDto.toQuery(request, user.id));
     return PaginatedResponseDto.create({
-      data: result.data.map(MyBuildingListResponseDto.fromDomain),
+      data: result.data.map(({ building, stats }) =>
+        MyBuildingListResponseDto.fromDomain(building, stats),
+      ),
       pagination: result.pagination,
     });
   }
@@ -92,11 +94,11 @@ export class MyBuildingController {
     @Param('buildingId', ParseUUIDPipe) buildingId: Uuid,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<MyBuildingDetailResponseDto> {
-    const building = await this.queryBus.execute<
+    const { building, stats } = await this.queryBus.execute<
       BuildingGetMineQuery,
-      BuildingEntity
+      BuildingWithStats
     >(new BuildingGetMineQuery(user.id, buildingId));
-    const response = MyBuildingDetailResponseDto.fromDomain(building);
+    const response = MyBuildingDetailResponseDto.fromDomain(building, stats);
     const media = await this.media.findMediaByOwner('building', building.id);
     const certificates = media.filter(
       (item) =>

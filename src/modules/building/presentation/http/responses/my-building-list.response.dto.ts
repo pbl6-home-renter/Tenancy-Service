@@ -1,6 +1,10 @@
 import { ApiProperty, ApiPropertyOptional, ApiSchema } from '@nestjs/swagger';
 import { BuildingEntity } from '../../../domain/entities/building.entity';
 import { BuildingStatus } from '../../../domain/enums/building-status.enum';
+import {
+  BuildingRoomStats,
+  formatOccupancyRate,
+} from '../../../application/ports/building-room-stats.port';
 
 @ApiSchema({ name: 'BuildingMyListResponseDto' })
 export class MyBuildingListResponseDto {
@@ -19,6 +23,9 @@ export class MyBuildingListResponseDto {
   @ApiProperty({ minimum: 0, type: 'integer' })
   occupiedRooms: number;
 
+  @ApiProperty({ minimum: 0, type: 'integer' })
+  totalRooms: number;
+
   @ApiProperty({ example: '0%' })
   occupancyRate: string;
 
@@ -28,15 +35,18 @@ export class MyBuildingListResponseDto {
   @ApiPropertyOptional({ type: String, format: 'date-time' })
   createdAt: Date;
 
-  static fromDomain(entity: BuildingEntity): MyBuildingListResponseDto {
+  static fromDomain(
+    entity: BuildingEntity,
+    stats: BuildingRoomStats,
+  ): MyBuildingListResponseDto {
     const dto = new MyBuildingListResponseDto();
     dto.id = entity.id;
     dto.name = entity.name;
     dto.address = entity.address;
     dto.status = entity.status;
-    // TODO(room): Populate occupancy statistics when room and Contract data are integrated.
-    dto.occupiedRooms = 0;
-    dto.occupancyRate = '0%';
+    dto.totalRooms = stats.totalRooms;
+    dto.occupiedRooms = stats.occupiedRooms;
+    dto.occupancyRate = formatOccupancyRate(stats);
     if (entity.status === BuildingStatus.REJECTED) {
       dto.rejectionReason = entity.note ?? undefined;
     }

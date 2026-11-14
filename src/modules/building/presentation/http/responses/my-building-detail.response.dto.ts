@@ -1,6 +1,10 @@
 import { ApiProperty, ApiPropertyOptional, ApiSchema } from '@nestjs/swagger';
 import { BuildingEntity } from '../../../domain/entities/building.entity';
 import { BuildingStatus } from '../../../domain/enums/building-status.enum';
+import {
+  BuildingRoomStats,
+  formatOccupancyRate,
+} from '../../../application/ports/building-room-stats.port';
 
 @ApiSchema({ name: 'BuildingMyDetailResponseDto' })
 export class MyBuildingDetailResponseDto {
@@ -21,6 +25,9 @@ export class MyBuildingDetailResponseDto {
 
   @ApiProperty({ minimum: 0, type: 'integer' })
   occupiedRooms: number;
+
+  @ApiProperty({ minimum: 0, type: 'integer' })
+  totalRooms: number;
 
   @ApiProperty({ example: '0%' })
   occupancyRate: string;
@@ -77,16 +84,19 @@ export class MyBuildingDetailResponseDto {
   @ApiPropertyOptional({ type: String, format: 'date-time' })
   createdAt: Date;
 
-  static fromDomain(entity: BuildingEntity): MyBuildingDetailResponseDto {
+  static fromDomain(
+    entity: BuildingEntity,
+    stats: BuildingRoomStats,
+  ): MyBuildingDetailResponseDto {
     const dto = new MyBuildingDetailResponseDto();
     dto.id = entity.id;
     dto.name = entity.name;
     dto.province = entity.province;
     dto.ward = entity.ward;
     dto.address = entity.address;
-    // TODO(room): Populate occupancy statistics when room and Contract data are integrated.
-    dto.occupiedRooms = 0;
-    dto.occupancyRate = '0%';
+    dto.totalRooms = stats.totalRooms;
+    dto.occupiedRooms = stats.occupiedRooms;
+    dto.occupancyRate = formatOccupancyRate(stats);
     dto.status = entity.status;
     dto.reviewNote = entity.note;
     // TODO(building): Expose amenities and totalFloors when the domain supports them.
