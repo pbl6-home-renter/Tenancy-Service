@@ -137,6 +137,18 @@ export class TypeOrmContractMemberRepository implements ContractMemberRepository
     return rows.map(ContractMemberMapper.toDomain);
   }
 
+  async findActiveByContractAt(
+    contractId: Uuid,
+    at: Date,
+    context: TransactionContext,
+  ): Promise<ContractMember[]> {
+    const day = at.toISOString().slice(0, 10);
+    const rows = await this.activeQuery(contractId, context, day)
+      .andWhere('member.joinedAt <= :day', { day })
+      .getMany();
+    return rows.map(ContractMemberMapper.toDomain);
+  }
+
   existsActiveByContractAndTenant(
     contractId: Uuid,
     tenantId: Uuid,
@@ -220,13 +232,17 @@ export class TypeOrmContractMemberRepository implements ContractMemberRepository
     );
   }
 
-  private activeQuery(contractId: Uuid, context?: TransactionContext) {
+  private activeQuery(
+    contractId: Uuid,
+    context?: TransactionContext,
+    today = new Date().toISOString().slice(0, 10),
+  ) {
     return withTransaction(this.repository, context)
       .createQueryBuilder('member')
       .where('member.contractId = :contractId', { contractId })
       .andWhere('member.isDeleted = false')
       .andWhere('(member.leftAt IS NULL OR member.leftAt > :today)', {
-        today: new Date().toISOString().slice(0, 10),
+        today,
       });
   }
 }
