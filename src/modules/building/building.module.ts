@@ -14,6 +14,8 @@ import { MyBuildingController } from './presentation/http/controllers/my-buildin
 import { BUILDING_DI_TOKEN } from './building.di-token';
 import { TrackAsiaGeocodingAdapter } from './infrastructure/geocoding/trackasia-geocoding.adapter';
 import { TypeOrmBuildingRepository } from './infrastructure/persistence/building.repository';
+import { TypeOrmBuildingRoomStatsReader } from './infrastructure/persistence/building-room-stats.reader';
+import { RoomTypeormEntity } from 'modules/room/infrastructure/persistence/room.typeorm-entity';
 import { BuildingTypeormEntity } from './infrastructure/persistence/building.typeorm-entity';
 import { BuildingApproveCommandHandler } from './application/commands/building-approve/building-approve.command.handler';
 import { BuildingRejectCommandHandler } from './application/commands/building-reject/building-reject.command.handler';
@@ -45,7 +47,7 @@ const queryHandlers = [
 @Module({
   imports: [
     CqrsModule,
-    TypeOrmModule.forFeature([BuildingTypeormEntity]),
+    TypeOrmModule.forFeature([BuildingTypeormEntity, RoomTypeormEntity]),
     HttpModule,
     InternalHttpModule,
     OutboxModule,
@@ -59,6 +61,10 @@ const queryHandlers = [
     ...commandHandlers,
     ...queryHandlers,
     { provide: MEDIA_LOOKUP_PORT, useClass: IdentityMediaLookupService },
+    {
+      provide: BUILDING_DI_TOKEN.ROOM_STATS,
+      useClass: TypeOrmBuildingRoomStatsReader,
+    },
     {
       provide: BUILDING_DI_TOKEN.REPOSITORY,
       useClass: TypeOrmBuildingRepository,

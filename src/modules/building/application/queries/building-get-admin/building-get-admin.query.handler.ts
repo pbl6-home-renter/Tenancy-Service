@@ -6,6 +6,10 @@ import { BuildingRepository } from '../../../domain/repositories/building.reposi
 import type { IInternalUserService } from '../../../infrastructure/services/internal-user.service';
 import { BuildingGetAdminResult } from '../building-get-admin/building-get-admin.result';
 import { BuildingGetAdminQuery } from './building-get-admin.query';
+import {
+  BuildingRoomStatsReader,
+  emptyBuildingRoomStats,
+} from '../../ports/building-room-stats.port';
 
 @QueryHandler(BuildingGetAdminQuery)
 export class BuildingGetAdminQueryHandler implements IQueryHandler<
@@ -17,6 +21,8 @@ export class BuildingGetAdminQueryHandler implements IQueryHandler<
     private readonly buildingRepository: BuildingRepository,
     @Inject(BUILDING_DI_TOKEN.INTERNAL_USER)
     private readonly internalUserService: IInternalUserService,
+    @Inject(BUILDING_DI_TOKEN.ROOM_STATS)
+    private readonly roomStats: BuildingRoomStatsReader,
   ) {}
 
   async execute(query: BuildingGetAdminQuery): Promise<BuildingGetAdminResult> {
@@ -26,6 +32,11 @@ export class BuildingGetAdminQueryHandler implements IQueryHandler<
     const landlord = await this.internalUserService.findById(
       building.landlordId,
     );
-    return { building, landlord };
+    const stats = await this.roomStats.getStats([building.id]);
+    return {
+      building,
+      landlord,
+      stats: stats.get(building.id) ?? emptyBuildingRoomStats(),
+    };
   }
 }

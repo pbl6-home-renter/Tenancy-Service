@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional, ApiSchema } from '@nestjs/swagger';
 import { BuildingGetAdminResult } from '../../../application/queries/building-get-admin/building-get-admin.result';
 import { BuildingStatus } from '../../../domain/enums/building-status.enum';
+import { formatOccupancyRate } from '../../../application/ports/building-room-stats.port';
 
 export class AdminBuildingLandlordResponseDto {
   @ApiProperty({ type: String, format: 'uuid' })
@@ -82,6 +83,7 @@ export class AdminBuildingDetailResponseDto {
   static fromReadModel({
     building,
     landlord,
+    stats,
   }: BuildingGetAdminResult): AdminBuildingDetailResponseDto {
     const dto = new AdminBuildingDetailResponseDto();
     dto.id = building.id;
@@ -98,7 +100,7 @@ export class AdminBuildingDetailResponseDto {
       cccdNumber: null,
     };
     dto.ownershipDocuments = [];
-    dto.occupancyRate = '0%';
+    dto.occupancyRate = formatOccupancyRate(stats);
     dto.status = building.status;
     dto.reviewNote = building.note;
     dto.submittedAt = building.createdAt;
