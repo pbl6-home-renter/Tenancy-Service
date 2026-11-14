@@ -15,6 +15,7 @@ import { TypeOrmContractReadRepository } from './infrastructure/persistence/cont
 import { ContractActivateCommandHandler } from './application/commands/contract-activate/contract-activate.command.handler';
 import { ContractCreateCommandHandler } from './application/commands/contract-create/contract-create.command.handler';
 import { ContractUpdateCommandHandler } from './application/commands/contract-update/contract-update.command.handler';
+import { ContractTemplateApplyCommandHandler } from './application/commands/contract-template-apply/contract-template-apply.command.handler';
 import { ContractGetByIdQueryHandler } from './application/queries/contract-get-by-id/contract-get-by-id.query.handler';
 import { ContractListQueryHandler } from './application/queries/contract-list/contract-list.query.handler';
 import { ContractController } from './presentation/http/controllers/contract.controller';
@@ -40,6 +41,7 @@ import { ContractCheckoutCompleteCommandHandler } from './application/commands/c
 import { ContractSettlementAdapter } from './infrastructure/persistence/contract-settlement.adapter';
 
 const commandHandlers = [
+  ContractTemplateApplyCommandHandler,
   ContractCheckoutCompleteCommandHandler,
   ContractMemberAddCommandHandler,
   ContractMemberUpdateCommandHandler,
