@@ -1,3 +1,5 @@
+import { UserAvatarLookupQuery } from '../../../application/queries/user-avatar-lookup/user-avatar-lookup.query';
+import { UserAvatarUrls } from '../../../application/queries/user-avatar-lookup/user-avatar-lookup.query.handler';
 import {
   Body,
   Controller,
@@ -96,8 +98,14 @@ export class ContractMemberController {
       ContractMemberListQuery,
       PaginatedResult<ContractMember>
     >(ListContractMembersQueryRequestDto.toQuery(request, user));
+    const avatars = await this.queryBus.execute<
+      UserAvatarLookupQuery,
+      UserAvatarUrls
+    >(new UserAvatarLookupQuery(result.data.map((member) => member.tenantId)));
     return PaginatedResponseDto.create({
-      data: result.data.map(ContractMemberListItemResponseDto.fromDomain),
+      data: result.data.map((member) =>
+        ContractMemberListItemResponseDto.fromDomain(member, avatars),
+      ),
       pagination: result.pagination,
     });
   }
