@@ -22,6 +22,8 @@ import { ContractTemplateTypeormEntity } from './infrastructure/persistence/cont
 import { TypeOrmContractTemplateRepository } from './infrastructure/persistence/contract-template.repository';
 import { PdfContractDocumentRenderer } from './infrastructure/document/pdf-contract-document.renderer';
 import { IdentityMediaLookupAdapter } from './infrastructure/media/identity-media-lookup.adapter';
+import { IdentityUserAvatarLookupAdapter } from './infrastructure/users/identity-user-avatar-lookup.adapter';
+import { UserAvatarLookupQueryHandler } from './application/queries/user-avatar-lookup/user-avatar-lookup.query.handler';
 import { ContractTemplateListQueryHandler } from './application/queries/contract-template-list/contract-template-list.query.handler';
 import { ContractTemplateGetQueryHandler } from './application/queries/contract-template-get/contract-template-get.query.handler';
 import { ContractTemplateController } from './presentation/http/controllers/contract-template.controller';
@@ -49,6 +51,7 @@ const commandHandlers = [
 const queryHandlers = [
   ContractMyListQueryHandler,
   ContractMemberListQueryHandler,
+  UserAvatarLookupQueryHandler,
   ContractGetByIdQueryHandler,
   ContractListQueryHandler,
   ContractTemplateListQueryHandler,
@@ -108,6 +111,10 @@ const queryHandlers = [
     {
       provide: CONTRACT_DI_TOKEN.MEDIA_LOOKUP,
       useClass: IdentityMediaLookupAdapter,
+    },
+    {
+      provide: CONTRACT_DI_TOKEN.USER_AVATAR_LOOKUP,
+      useClass: IdentityUserAvatarLookupAdapter,
     },
     ...commandHandlers,
     ...queryHandlers,
