@@ -1,3 +1,5 @@
+import { ContractTypeormEntity } from 'modules/contract/infrastructure/persistence/contract.entity';
+import { TypeOrmRoomActiveContractChecker } from './infrastructure/persistence/room-active-contract-checker';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CqrsModule } from '@nestjs/cqrs';
@@ -34,7 +36,7 @@ const queryHandlers = [
 @Module({
   imports: [
     CqrsModule,
-    TypeOrmModule.forFeature([RoomTypeormEntity]),
+    TypeOrmModule.forFeature([RoomTypeormEntity, ContractTypeormEntity]),
     BuildingModule,
     OutboxModule,
     InternalHttpModule,
@@ -48,6 +50,10 @@ const queryHandlers = [
     {
       provide: ROOM_DI_TOKEN.READ_REPOSITORY,
       useClass: TypeOrmRoomReadRepository,
+    },
+    {
+      provide: ROOM_DI_TOKEN.ACTIVE_CONTRACT_CHECKER,
+      useClass: TypeOrmRoomActiveContractChecker,
     },
     { provide: MEDIA_LOOKUP_PORT, useClass: IdentityMediaLookupService },
     ...commandHandlers,

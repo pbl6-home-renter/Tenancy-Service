@@ -10,6 +10,8 @@ import { ROOM_DI_TOKEN } from '../../../room.di-token';
 import { RoomNotFoundException } from '../../../domain/exceptions/room-not-found.exception';
 import { RoomRepository } from '../../../domain/repositories/room.repository';
 import { RoomDeleteCommand } from './room-delete.command';
+import { RoomActiveContractCheckerPort } from '../../ports/room-active-contract-checker.port';
+import { RoomHasActiveContractException } from '../../../domain/exceptions/room-has-active-contract.exception';
 
 @CommandHandler(RoomDeleteCommand)
 export class RoomDeleteCommandHandler implements ICommandHandler<
@@ -23,6 +25,8 @@ export class RoomDeleteCommandHandler implements ICommandHandler<
     private readonly unitOfWork: IUnitOfWork,
     @Inject(OUTBOX_DI_TOKEN.REPOSITORY)
     private readonly outboxRepository: OutboxRepository,
+    @Inject(ROOM_DI_TOKEN.ACTIVE_CONTRACT_CHECKER)
+    private readonly activeContractChecker: RoomActiveContractCheckerPort,
   ) {}
 
   async execute(command: RoomDeleteCommand): Promise<void> {
@@ -38,7 +42,16 @@ export class RoomDeleteCommandHandler implements ICommandHandler<
         throw new RoomNotOwnedException(command.roomId, command.landlordId);
       }
 
-      // TODO: Check for active contracts when the Contract domain is available.
+      // Room is locked above; contract activation locks the same room, so this
+      // read cannot race with a concurrent activation (P2-D50).
+      if (
+        await this.activeContractChecker.hasActiveContract(
+          command.roomId,
+          context,
+        )
+      ) {
+        throw new RoomHasActiveContractException(command.roomId);
+      }
       room.delete();
       await this.roomRepository.save(room, context);
       await this.outboxRepository.append(
