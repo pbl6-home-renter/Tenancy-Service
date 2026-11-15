@@ -1,6 +1,11 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CqrsModule } from '@nestjs/cqrs';
+import { LANDLORD_LOCK_GRACE_PERIOD_MS } from './domain/constants/landlord-lock-grace.constant';
+import { LandlordLockGraceScanCommandHandler } from './application/commands/landlord-lock-grace-scan/landlord-lock-grace-scan.command.handler';
+import { LandlordLockGraceScheduler } from './infrastructure/scheduler/landlord-lock-grace.scheduler';
+import { LandlordLockCycleTypeormEntity } from './infrastructure/persistence/landlord-lock-cycle.typeorm-entity';
+import { TypeOrmLandlordLockCycleRepository } from './infrastructure/persistence/landlord-lock-cycle.repository';
 import { InternalHttpModule } from 'shared/infrastructure/http/internal-http.module';
 import { OutboxModule } from 'modules/outbox/outbox.module';
 import { InboxModule } from 'modules/inbox/inbox.module';
@@ -44,6 +49,7 @@ import { ContractCheckoutCompleteCommandHandler } from './application/commands/c
 import { ContractSettlementAdapter } from './infrastructure/persistence/contract-settlement.adapter';
 
 const commandHandlers = [
+  LandlordLockGraceScanCommandHandler,
   ContractTemplateApplyCommandHandler,
   ContractCheckoutCompleteCommandHandler,
   ContractMemberAddCommandHandler,
@@ -68,6 +74,7 @@ const queryHandlers = [
   imports: [
     CqrsModule,
     TypeOrmModule.forFeature([
+      LandlordLockCycleTypeormEntity,
       TenantUserProjectionTypeormEntity,
       ContractMemberTypeormEntity,
       ContractTypeormEntity,
@@ -87,6 +94,19 @@ const queryHandlers = [
     ContractMemberController,
   ],
   providers: [
+    LandlordLockGraceScheduler,
+    {
+      provide: CONTRACT_DI_TOKEN.LANDLORD_LOCK_CYCLE,
+      useClass: TypeOrmLandlordLockCycleRepository,
+    },
+    {
+      provide: CONTRACT_DI_TOKEN.LANDLORD_LOCK_CYCLE_DUE_QUERY,
+      useExisting: CONTRACT_DI_TOKEN.LANDLORD_LOCK_CYCLE,
+    },
+    {
+      provide: CONTRACT_DI_TOKEN.LANDLORD_LOCK_GRACE_PERIOD_MS,
+      useValue: LANDLORD_LOCK_GRACE_PERIOD_MS,
+    },
     IdentityLifecycleSubscriber,
     {
       provide: CONTRACT_DI_TOKEN.TENANT_USER_PROJECTION,
