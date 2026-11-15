@@ -49,6 +49,9 @@ import { ContractMyListQueryHandler } from './application/queries/contract-my-li
 import { ContractMyController } from './presentation/http/controllers/contract-my.controller';
 import { ContractCheckoutCompleteCommandHandler } from './application/commands/contract-checkout-complete/contract-checkout-complete.command.handler';
 import { ContractSettlementAdapter } from './infrastructure/persistence/contract-settlement.adapter';
+import { RoomHubListQueryHandler } from './application/queries/room-hub-list/room-hub-list.query.handler';
+import { RoomHubController } from './presentation/http/controllers/room-hub.controller';
+import { TypeOrmRoomHubPageQuery } from './infrastructure/persistence/room-hub-page-query';
 
 const commandHandlers = [
   ContractLockDecisionCommandHandler,
@@ -63,6 +66,7 @@ const commandHandlers = [
   ContractActivateCommandHandler,
 ];
 const queryHandlers = [
+  RoomHubListQueryHandler,
   ContractDraftDocumentGenerateQueryHandler,
   ContractMyListQueryHandler,
   ContractMemberListQueryHandler,
@@ -91,6 +95,7 @@ const queryHandlers = [
     InternalHttpModule,
   ],
   controllers: [
+    RoomHubController,
     ContractMyController,
     ContractController,
     ContractTemplateController,
@@ -100,6 +105,10 @@ const queryHandlers = [
     {
       provide: CONTRACT_DI_TOKEN.LANDLORD_LOCK_EVIDENCE,
       useClass: IdentityLandlordLockEvidenceReader,
+    },
+    {
+      provide: CONTRACT_DI_TOKEN.ROOM_HUB_PAGE_QUERY,
+      useClass: TypeOrmRoomHubPageQuery,
     },
     LandlordLockGraceScheduler,
     {
