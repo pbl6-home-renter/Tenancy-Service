@@ -18,6 +18,8 @@ export class LandlordLockCycleMapper {
     raw.graceDeadline = cycle.graceDeadline;
     raw.contractIds = cycle.contractIds;
     raw.state = cycle.state;
+    raw.unlockedAt = cycle.unlockedAt;
+    raw.decisions = cycle.decisions;
     raw.createdAt = cycle.createdAt;
     raw.updatedAt = cycle.updatedAt;
     raw.isDeleted = cycle.isDeleted;

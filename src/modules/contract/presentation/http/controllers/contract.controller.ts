@@ -13,6 +13,10 @@ import {
   StreamableFile,
 } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
+import { ContractLockDecisionCommand } from '../../../application/commands/contract-lock-decision/contract-lock-decision.command';
+import { ContractLockDecisionRequestDto } from '../requests/contract-lock-decision.request.dto';
+import { ContractLockDecisionResponseDto } from '../responses/contract-lock-decision.response.dto';
+import { LandlordLockCycleEntity } from '../../../domain/entities/landlord-lock-cycle.entity';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -62,7 +66,7 @@ export class ContractController {
   constructor(
     private readonly commandBus: CommandBus,
     private readonly queryBus: QueryBus,
-  ) { }
+  ) {}
 
   @Post()
   @Roles(UserRole.LANDLORD)
@@ -266,5 +270,55 @@ export class ContractController {
       contract,
       request.completedOn,
     );
+  }
+
+  @Put(':contractId/lock-cycles/:lockCycleId/decision')
+  @Roles(UserRole.LANDLORD)
+  @HttpCode(HttpStatus.OK)
+  @ResponseCode(ContractResponseCodeConstant.CONTRACT_LOCK_DECISION_RECORDED)
+  @ApiOperation({
+    operationId: 'putContractsContractidLockCyclesLockcycleidDecision',
+    summary: 'Resolve a suspended contract after landlord unlock',
+  })
+  @ApiSuccessResponse({
+    code: ContractResponseCodeConstant.CONTRACT_LOCK_DECISION_RECORDED,
+    dataDto: ContractLockDecisionResponseDto,
+  })
+  @ApiResponse({ status: 403, description: 'FORBIDDEN' })
+  @ApiResponse({
+    status: 404,
+    description: 'RESOURCE_NOT_FOUND or LANDLORD_LOCK_CYCLE_NOT_FOUND',
+  })
+  @ApiResponse({
+    status: 409,
+    description:
+      'LANDLORD_LOCK_CYCLE_STALE or LANDLORD_LOCK_CYCLE_NOT_AWAITING_DECISION or CONTRACT_LOCK_DECISION_CONFLICT or CONTRACT_LOCK_DECISION_INVALID or CONTRACT_RESTORE_ROOM_UNAVAILABLE',
+  })
+  @ApiResponse({
+    status: 422,
+    description: 'VALIDATION_FAILED or UNEXPECTED_FIELD',
+  })
+  @ApiResponse({
+    status: 503,
+    description: 'SERVICE_UNAVAILABLE or AUTH_UNAVAILABLE',
+  })
+  async lockDecision(
+    @Param('contractId', ParseUUIDPipe) contractId: Uuid,
+    @Param('lockCycleId', ParseUUIDPipe) lockCycleId: Uuid,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() request: ContractLockDecisionRequestDto,
+  ): Promise<ContractLockDecisionResponseDto> {
+    const cycle = await this.commandBus.execute<
+      ContractLockDecisionCommand,
+      LandlordLockCycleEntity
+    >(
+      ContractLockDecisionRequestDto.toCommand(
+        request,
+        user.id,
+        contractId,
+        lockCycleId,
+      ),
+    );
+    return ContractLockDecisionResponseDto.fromDomain(cycle, contractId);
   }
 }

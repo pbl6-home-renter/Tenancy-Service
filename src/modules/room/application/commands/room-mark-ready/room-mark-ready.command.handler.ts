@@ -11,6 +11,8 @@ import { RoomNotFoundException } from '../../../domain/exceptions/room-not-found
 import { RoomRepository } from '../../../domain/repositories/room.repository';
 import { Room } from '../../../domain/entities/room.entity';
 import { RoomMarkReadyCommand } from './room-mark-ready.command';
+import { RoomActiveContractCheckerPort } from '../../ports/room-active-contract-checker.port';
+import { RoomHasActiveContractException } from '../../../domain/exceptions/room-has-active-contract.exception';
 
 @CommandHandler(RoomMarkReadyCommand)
 export class RoomMarkReadyCommandHandler implements ICommandHandler<
@@ -24,6 +26,8 @@ export class RoomMarkReadyCommandHandler implements ICommandHandler<
     private readonly unitOfWork: IUnitOfWork,
     @Inject(OUTBOX_DI_TOKEN.REPOSITORY)
     private readonly outboxRepository: OutboxRepository,
+    @Inject(ROOM_DI_TOKEN.ACTIVE_CONTRACT_CHECKER)
+    private readonly activeContractChecker: RoomActiveContractCheckerPort,
   ) {}
 
   execute(command: RoomMarkReadyCommand): Promise<Room> {
@@ -39,6 +43,8 @@ export class RoomMarkReadyCommandHandler implements ICommandHandler<
         throw new RoomNotOwnedException(command.roomId, command.landlordId);
       }
 
+      if (await this.activeContractChecker.hasActiveContract(room.id, context))
+        throw new RoomHasActiveContractException(room.id);
       room.markReady();
       await this.roomRepository.save(room, context);
       await this.outboxRepository.append(

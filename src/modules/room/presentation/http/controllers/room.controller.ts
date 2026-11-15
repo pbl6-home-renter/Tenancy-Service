@@ -196,6 +196,10 @@ export class RoomController {
     code: RoomResponseCodeConstant.ROOM_MARKED_READY,
     dataDto: RoomMarkReadyResponseDto,
   })
+  @ApiResponse({
+    status: 409,
+    description: 'ROOM_HAS_ACTIVE_CONTRACT or INVALID_ROOM_TRANSITION',
+  })
   async markReady(
     @Param('roomId', ParseUUIDPipe) roomId: Uuid,
     @CurrentUser() user: AuthenticatedUser,

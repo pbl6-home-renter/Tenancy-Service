@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { LessThanOrEqual, Repository } from 'typeorm';
+import { In, LessThanOrEqual, Repository } from 'typeorm';
 import { TransactionContext } from 'shared/domain/repositories/transaction-context';
 import { Uuid } from 'shared/domain/value-objects/uuid.vo';
 import { withTransaction } from 'shared/infrastructure/database/transaction/typeorm-transaction-context';
@@ -42,8 +42,11 @@ export class TypeOrmLandlordLockCycleRepository
     return row ? LandlordLockCycleMapper.toDomain(row) : null;
   }
 
-  async findById(id: Uuid): Promise<LandlordLockCycleEntity | null> {
-    const row = await this.repository.findOne({
+  async findById(
+    id: Uuid,
+    context?: TransactionContext,
+  ): Promise<LandlordLockCycleEntity | null> {
+    const row = await withTransaction(this.repository, context).findOne({
       where: { id, isDeleted: false },
     });
     return row ? LandlordLockCycleMapper.toDomain(row) : null;
@@ -68,11 +71,12 @@ export class TypeOrmLandlordLockCycleRepository
   async findDue(now: Date, limit: number): Promise<LandlordLockCycleEntity[]> {
     const rows = await this.repository.find({
       where: {
-        state: 'pending',
+        state: In(['pending', 'elapsed']),
         graceDeadline: LessThanOrEqual(now),
         isDeleted: false,
       },
-      order: { graceDeadline: 'ASC', id: 'ASC' },
+      // Rotate unresolved historical cycles so they cannot starve newer deadlines.
+      order: { updatedAt: 'ASC', graceDeadline: 'ASC', id: 'ASC' },
       take: limit,
     });
     return rows.map(LandlordLockCycleMapper.toDomain);

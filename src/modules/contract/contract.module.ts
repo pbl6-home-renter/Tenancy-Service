@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CqrsModule } from '@nestjs/cqrs';
+import { ContractLockDecisionCommandHandler } from './application/commands/contract-lock-decision/contract-lock-decision.command.handler';
+import { IdentityLandlordLockEvidenceReader } from './infrastructure/users/identity-landlord-lock-evidence.reader';
 import { LANDLORD_LOCK_GRACE_PERIOD_MS } from './domain/constants/landlord-lock-grace.constant';
 import { LandlordLockGraceScanCommandHandler } from './application/commands/landlord-lock-grace-scan/landlord-lock-grace-scan.command.handler';
 import { LandlordLockGraceScheduler } from './infrastructure/scheduler/landlord-lock-grace.scheduler';
@@ -49,6 +51,7 @@ import { ContractCheckoutCompleteCommandHandler } from './application/commands/c
 import { ContractSettlementAdapter } from './infrastructure/persistence/contract-settlement.adapter';
 
 const commandHandlers = [
+  ContractLockDecisionCommandHandler,
   LandlordLockGraceScanCommandHandler,
   ContractTemplateApplyCommandHandler,
   ContractCheckoutCompleteCommandHandler,
@@ -94,6 +97,10 @@ const queryHandlers = [
     ContractMemberController,
   ],
   providers: [
+    {
+      provide: CONTRACT_DI_TOKEN.LANDLORD_LOCK_EVIDENCE,
+      useClass: IdentityLandlordLockEvidenceReader,
+    },
     LandlordLockGraceScheduler,
     {
       provide: CONTRACT_DI_TOKEN.LANDLORD_LOCK_CYCLE,

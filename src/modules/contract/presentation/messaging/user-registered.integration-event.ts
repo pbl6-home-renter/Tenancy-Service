@@ -34,6 +34,7 @@ export type UserLifecycleIntegrationEvent =
       status: UserStatus.ACTIVE;
       role?: UserRole;
       phone?: string;
+      lockedAt?: string | null;
     }> & {
       eventType: typeof USER_UNLOCKED_EVENT;
     })

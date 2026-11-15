@@ -6,10 +6,21 @@ export interface LandlordLockCycleProps {
   lockedAt: Date;
   graceDeadline: Date;
   contractIds: Uuid[];
-  state: 'pending' | 'elapsed' | 'superseded';
+  state:
+    'pending' | 'elapsed' | 'superseded' | 'decision_pending' | 'completed';
+  unlockedAt?: Date | null;
+  decisions?: Record<string, ContractLockDecision>;
   createdAt: Date;
   updatedAt: Date;
   isDeleted: boolean;
+}
+
+export type ContractLockDecisionAction = 'restore' | 'terminate';
+
+export interface ContractLockDecision {
+  action: ContractLockDecisionAction;
+  decidedAt: string;
+  origin: 'landlord' | 'grace_expired';
 }
 
 export interface CreateLandlordLockCycleProps {

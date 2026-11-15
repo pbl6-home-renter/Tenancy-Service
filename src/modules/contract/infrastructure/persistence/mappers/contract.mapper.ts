@@ -20,6 +20,8 @@ export class ContractMapper {
       activatedAt: raw.activatedAt,
       templateKey: raw.templateKey,
       signedContractMediaIds: raw.signedContractMediaIds ?? [],
+      lockTerminationCycleId: raw.lockTerminationCycleId,
+      handoverCompletedOn: raw.handoverCompletedOn,
       createdAt: raw.createdAt,
       updatedAt: raw.updatedAt,
       isDeleted: raw.isDeleted,
@@ -44,6 +46,8 @@ export class ContractMapper {
     raw.activatedAt = contract.activatedAt;
     raw.templateKey = contract.templateKey;
     raw.signedContractMediaIds = contract.signedContractMediaIds;
+    raw.lockTerminationCycleId = contract.lockTerminationCycleId;
+    raw.handoverCompletedOn = contract.handoverCompletedOn;
     raw.createdAt = contract.createdAt;
     raw.updatedAt = contract.updatedAt;
     raw.isDeleted = contract.isDeleted;

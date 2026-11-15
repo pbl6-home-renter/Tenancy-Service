@@ -4,6 +4,7 @@ import { ContractStatus } from 'modules/contract/domain/enums/contract-status.en
 import { TransactionContext } from 'shared/domain/repositories/transaction-context';
 import { generateUuid, Uuid } from 'shared/domain/value-objects/uuid.vo';
 import { IUnitOfWork } from 'shared/application/ports/unit-of-work.port';
+import { OutboxMessage } from 'modules/outbox/domain/entities/outbox-message.entity';
 
 export function createContract(
   tenantId: Uuid | null = null,
@@ -58,6 +59,11 @@ export function createLinkDependencies() {
       async () => null,
     ),
   };
-  const outbox = { append: jest.fn(async () => undefined) };
+  const outbox = {
+    append: jest.fn(
+      async (_messages: OutboxMessage[], _context?: TransactionContext) =>
+        undefined,
+    ),
+  };
   return { context, unitOfWork, projection, outbox };
 }

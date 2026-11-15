@@ -71,6 +71,7 @@ describe('ContractActivateCommandHandler', () => {
       ),
     } as unknown as ContractMemberRepository;
     const contractRepository = {
+      existsBlockingByRoom: jest.fn(async () => false),
       findByIdForUpdate: jest.fn(
         async (_id: string, passedContext: TransactionContext) => {
           expect(passedContext).toBe(context);
