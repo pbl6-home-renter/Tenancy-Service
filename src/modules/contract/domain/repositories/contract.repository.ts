@@ -15,6 +15,15 @@ export interface ContractListFilter {
 }
 
 export interface ContractRepository extends BaseRepository<ContractEntity> {
+  findByIdsForUpdate(
+    ids: Uuid[],
+    context: TransactionContext,
+  ): Promise<ContractEntity[]>;
+  existsBlockingByRoom(
+    roomId: Uuid,
+    excludedContractId: Uuid | null,
+    context?: TransactionContext,
+  ): Promise<boolean>;
   findForLandlordLockForUpdate(
     landlordId: Uuid,
     previousContractIds: Uuid[],

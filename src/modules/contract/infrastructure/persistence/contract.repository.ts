@@ -26,6 +26,39 @@ export class TypeOrmContractRepository implements ContractRepository {
     private readonly repository: Repository<ContractTypeormEntity>,
   ) {}
 
+  async findByIdsForUpdate(
+    ids: Uuid[],
+    context: TransactionContext,
+  ): Promise<ContractEntity[]> {
+    if (ids.length === 0) return [];
+    const rows = await withTransaction(this.repository, context).find({
+      where: { id: In(ids), isDeleted: false },
+      order: { id: 'ASC' },
+      lock: { mode: 'pessimistic_write' },
+    });
+    return rows.map(ContractMapper.toDomain);
+  }
+
+  existsBlockingByRoom(
+    roomId: Uuid,
+    excludedContractId: Uuid | null,
+    context?: TransactionContext,
+  ): Promise<boolean> {
+    return withTransaction(this.repository, context)
+      .createQueryBuilder('contract')
+      .where('contract.roomId = :roomId AND contract.isDeleted = false', {
+        roomId,
+      })
+      .andWhere(
+        '(CAST(:excludedContractId AS uuid) IS NULL OR contract.id <> :excludedContractId)',
+        { excludedContractId },
+      )
+      .andWhere(
+        "(contract.status IN ('active', 'suspended') OR (contract.status = 'terminated' AND contract.lockTerminationCycleId IS NOT NULL AND contract.handoverCompletedOn IS NULL))",
+      )
+      .getExists();
+  }
+
   async linkTenantMany(
     ids: Uuid[],
     tenantId: Uuid,
@@ -136,10 +169,7 @@ export class TypeOrmContractRepository implements ContractRepository {
     roomId: Uuid,
     context?: TransactionContext,
   ): Promise<boolean> {
-    return withTransaction(this.repository, context).existsBy({
-      roomId,
-      status: ContractStatus.ACTIVE,
-    });
+    return this.existsBlockingByRoom(roomId, null, context);
   }
 
   async findActiveInBuildingPeriod(

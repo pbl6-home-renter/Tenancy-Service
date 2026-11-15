@@ -49,8 +49,12 @@ export class ContractCheckoutCompleteCommandHandler implements ICommandHandler<
         throw new ContractForbiddenException();
       }
 
-      contract.terminate(command.completedOn);
+      const lockHandover = contract.lockTerminationCycleId !== null;
+      if (lockHandover && !contract.completeLockHandover(command.completedOn))
+        return contract;
+      if (!lockHandover) contract.terminate(command.completedOn);
       if (
+        !lockHandover &&
         !(await this.settlement.isPeriodSettled(
           contract.id,
           command.completedOn.toISOString().slice(0, 7),

@@ -16,6 +16,7 @@ import { ContractEntity } from '../../../domain/entities/contract.entity';
 import { ContractForbiddenException } from '../../../domain/exceptions/contract-forbidden.exception';
 import { ContractNotFoundException } from '../../../domain/exceptions/contract-not-found.exception';
 import { SignedFileMissingException } from '../../../domain/exceptions/signed-file-missing.exception';
+import { ActiveContractExistsException } from '../../../domain/exceptions/active-contract-exists.exception';
 import { ContractRepository } from '../../../domain/repositories/contract.repository';
 import { MediaLookupPort } from '../../ports/media-lookup.port';
 import { ContractActivateCommand } from './contract-activate.command';
@@ -77,6 +78,14 @@ export class ContractActivateCommandHandler implements ICommandHandler<
         context,
       );
       if (!room) throw new RoomNotFoundException(contract.roomId);
+      if (
+        await this.contractRepository.existsBlockingByRoom(
+          room.id,
+          contract.id,
+          context,
+        )
+      )
+        throw new ActiveContractExistsException(room.id);
 
       const activatedAt = new Date();
       const representative = ContractMember.add({

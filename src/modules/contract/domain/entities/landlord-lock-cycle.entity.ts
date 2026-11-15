@@ -2,12 +2,20 @@ import { AggregateRoot } from 'shared/domain/base/aggregate-root';
 import { ValidationException } from 'shared/domain/exceptions/validation.exception';
 import { Uuid } from 'shared/domain/value-objects/uuid.vo';
 import { ContractSuspensionNotificationRequestedEvent } from '../events/contract-suspension-notification-requested.event';
+import { ContractLockResolutionNotificationRequestedEvent } from '../events/contract-lock-resolution-notification-requested.event';
+import { ContractLockDecisionConflictException } from '../exceptions/contract-lock-decision-conflict.exception';
+import { ContractLockDecisionInvalidException } from '../exceptions/contract-lock-decision-invalid.exception';
+import { LandlordLockCycleNotAwaitingDecisionException } from '../exceptions/landlord-lock-cycle-not-awaiting-decision.exception';
 import {
   CreateLandlordLockCycleProps,
   LandlordLockCycleProps,
+  ContractLockDecision,
+  ContractLockDecisionAction,
 } from './landlord-lock-cycle.props';
 
 export class LandlordLockCycleEntity extends AggregateRoot {
+  private _unlockedAt: Date | null;
+  private readonly _decisions: Record<string, ContractLockDecision>;
   private constructor(
     props: LandlordLockCycleProps,
     readonly landlordId: Uuid,
@@ -17,6 +25,8 @@ export class LandlordLockCycleEntity extends AggregateRoot {
     private _state: LandlordLockCycleProps['state'],
   ) {
     super(props.id, props.createdAt, props.updatedAt, props.isDeleted);
+    this._unlockedAt = props.unlockedAt ? new Date(props.unlockedAt) : null;
+    this._decisions = structuredClone(props.decisions ?? {});
   }
 
   static create(props: CreateLandlordLockCycleProps): LandlordLockCycleEntity {
@@ -60,6 +70,89 @@ export class LandlordLockCycleEntity extends AggregateRoot {
 
   get state(): LandlordLockCycleProps['state'] {
     return this._state;
+  }
+
+  get unlockedAt(): Date | null {
+    return this._unlockedAt ? new Date(this._unlockedAt) : null;
+  }
+
+  get decisions(): Record<string, ContractLockDecision> {
+    return structuredClone(this._decisions);
+  }
+
+  beginDecision(unlockedAt: Date, contractIds: Uuid[]): boolean {
+    if (!Number.isFinite(unlockedAt.getTime()))
+      throw new ValidationException('Invalid landlord unlock time');
+    if (
+      !['pending', 'elapsed'].includes(this.state) ||
+      unlockedAt < this.lockedAt ||
+      unlockedAt >= this.graceDeadline
+    )
+      return false;
+    this._unlockedAt = new Date(unlockedAt);
+    this._state = contractIds.length ? 'decision_pending' : 'completed';
+    this.updatedAt.setTime(Date.now());
+    if (contractIds.length)
+      this.requestResolutionNotification(
+        this.landlordId,
+        contractIds,
+        'decision_required',
+      );
+    return true;
+  }
+
+  recordReconciliation(at: Date): void {
+    this.updatedAt.setTime(at.getTime());
+  }
+
+  recordDecision(
+    contractId: Uuid,
+    action: ContractLockDecisionAction,
+    at: Date,
+    origin: ContractLockDecision['origin'],
+  ): void {
+    const previous = this._decisions[contractId];
+    if (previous) {
+      if (previous.action !== action)
+        throw new ContractLockDecisionConflictException();
+      return;
+    }
+    if (
+      (origin === 'landlord' && this.state !== 'decision_pending') ||
+      (origin === 'grace_expired' &&
+        !['pending', 'elapsed'].includes(this.state))
+    )
+      throw new LandlordLockCycleNotAwaitingDecisionException();
+    if (!this._contractIds.includes(contractId))
+      throw new ContractLockDecisionInvalidException();
+    this._decisions[contractId] = {
+      action,
+      decidedAt: at.toISOString(),
+      origin,
+    };
+    this.updatedAt.setTime(at.getTime());
+  }
+
+  completeIfResolved(remainingContractIds: Uuid[]): void {
+    if (remainingContractIds.length === 0) {
+      this._state = 'completed';
+      this.updatedAt.setTime(Date.now());
+    }
+  }
+
+  requestResolutionNotification(
+    recipientUserId: Uuid,
+    contractIds: Uuid[],
+    action: 'decision_required' | ContractLockDecisionAction,
+  ): void {
+    this.addDomainEvent(
+      new ContractLockResolutionNotificationRequestedEvent(
+        this,
+        recipientUserId,
+        contractIds,
+        action,
+      ),
+    );
   }
 
   requestSuspensionNotification(

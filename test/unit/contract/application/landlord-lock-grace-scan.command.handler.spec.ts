@@ -3,20 +3,29 @@ import { LandlordLockGraceScanCommand } from 'modules/contract/application/comma
 import { LandlordLockCycleEntity } from 'modules/contract/domain/entities/landlord-lock-cycle.entity';
 import { LandlordLockCycleRepository } from 'modules/contract/domain/repositories/landlord-lock-cycle.repository';
 import { generateUuid } from 'shared/domain/value-objects/uuid.vo';
+import { OutboxRepository } from 'modules/outbox/domain/repositories/outbox.repository';
 import { createLinkDependencies } from '../support/contract-link.fixture';
+import { createContract } from '../support/contract-link.fixture';
+import { ContractStatus } from 'modules/contract/domain/enums/contract-status.enum';
+import { ContractRepository } from 'modules/contract/domain/repositories/contract.repository';
+import { ContractMemberRepository } from 'modules/contract/domain/repositories/contract-member.repository';
+import { LandlordLockEvidence } from 'modules/contract/application/ports/landlord-lock-evidence.port';
 
 const LOCKED_AT = new Date('2026-11-14T00:00:00.000Z');
 const GRACE_MS = 60_000;
 const DEADLINE = new Date(LOCKED_AT.getTime() + GRACE_MS);
 
 function setup() {
-  const { context, unitOfWork } = createLinkDependencies();
+  const { context, unitOfWork, outbox } = createLinkDependencies();
+  const landlordId = generateUuid();
+  const contract = createContract(generateUuid(), landlordId);
+  contract.suspend();
   const cycle = LandlordLockCycleEntity.create({
     id: generateUuid(),
-    landlordId: generateUuid(),
+    landlordId,
     lockedAt: LOCKED_AT,
     gracePeriodMs: GRACE_MS,
-    contractIds: [generateUuid()],
+    contractIds: [contract.id],
   });
   const repository = {
     lockLandlord: jest.fn(async () => undefined),
@@ -28,17 +37,43 @@ function setup() {
   };
   const dueCycles = {
     findDue: jest.fn(async (now: Date) =>
-      cycle.state === 'pending' && cycle.graceDeadline <= now ? [cycle] : [],
+      ['pending', 'elapsed'].includes(cycle.state) && cycle.graceDeadline <= now
+        ? [cycle]
+        : [],
     ),
   };
+  const evidence = {
+    find: jest.fn<Promise<LandlordLockEvidence | null>, unknown[]>(
+      async () => ({
+        lockedAt: LOCKED_AT.toISOString(),
+        unlockedAt: null,
+        latestLockedAt: LOCKED_AT.toISOString(),
+        observedAt: DEADLINE.toISOString(),
+        state: 'locked',
+      }),
+    ),
+  };
+  const contracts = {
+    findByIdsForUpdate: jest.fn(async () => [contract]),
+    save: jest.fn(async () => undefined),
+  };
+  const members = { findActiveByContract: jest.fn(async () => []) };
   const createHandler = () =>
     new LandlordLockGraceScanCommandHandler(
       repository as unknown as LandlordLockCycleRepository,
       dueCycles,
       unitOfWork,
+      evidence,
+      contracts as unknown as ContractRepository,
+      members as unknown as ContractMemberRepository,
+      outbox as unknown as OutboxRepository,
     );
   return {
     context,
+    evidence,
+    contract,
+    contracts,
+    outbox,
     unitOfWork,
     cycle,
     repository,
@@ -74,7 +109,9 @@ describe('LandlordLockGraceScanCommandHandler', () => {
     );
     expect(s.repository.save).toHaveBeenCalledTimes(1);
     expect(s.repository.save).toHaveBeenCalledWith(s.cycle, s.context);
-    expect(s.cycle.state).toBe('elapsed');
+    expect(s.cycle.state).toBe('completed');
+    expect(s.contract.status).toBe(ContractStatus.TERMINATED);
+    expect(s.contract.handoverRequired).toBe(true);
   });
 
   it('ignores a previously selected deadline after a newer lock supersedes it', async () => {
@@ -123,14 +160,72 @@ describe('LandlordLockGraceScanCommandHandler', () => {
     expect(s.repository.save).not.toHaveBeenCalled();
   });
 
-  it('does not process an elapsed cycle returned by an outdated due query', async () => {
+  it('reconciles elapsed P9-06 cycles using Identity evidence', async () => {
     const s = setup();
     s.cycle.reachGraceDeadline(DEADLINE);
     s.dueCycles.findDue.mockResolvedValue([s.cycle]);
     expect(
       await s.handler.execute(new LandlordLockGraceScanCommand(DEADLINE)),
+    ).toBe(1);
+    expect(s.cycle.state).toBe('completed');
+    expect(s.contract.status).toBe(ContractStatus.TERMINATED);
+  });
+
+  it('protects a pre-deadline unlock delivered after the deadline', async () => {
+    const s = setup();
+    s.evidence.find.mockResolvedValue({
+      lockedAt: LOCKED_AT.toISOString(),
+      unlockedAt: new Date(DEADLINE.getTime() - 1).toISOString(),
+      latestLockedAt: LOCKED_AT.toISOString(),
+      observedAt: new Date(DEADLINE.getTime() + 60_000).toISOString(),
+      state: 'unlocked',
+    });
+    await s.handler.execute(
+      new LandlordLockGraceScanCommand(new Date(DEADLINE.getTime() + 60_000)),
+    );
+    expect(s.cycle.state).toBe('decision_pending');
+    expect(s.contract.status).toBe(ContractStatus.SUSPENDED);
+    expect(s.contracts.save).not.toHaveBeenCalled();
+    expect(s.outbox.append.mock.calls[0][0]).toHaveLength(1);
+  });
+
+  it('treats unlock exactly at the deadline as expiry', async () => {
+    const s = setup();
+    s.evidence.find.mockResolvedValue({
+      lockedAt: LOCKED_AT.toISOString(),
+      unlockedAt: DEADLINE.toISOString(),
+      latestLockedAt: LOCKED_AT.toISOString(),
+      observedAt: DEADLINE.toISOString(),
+      state: 'unlocked',
+    });
+    await s.handler.execute(new LandlordLockGraceScanCommand(DEADLINE));
+    expect(s.contract.status).toBe(ContractStatus.TERMINATED);
+  });
+
+  it('retains historical elapsed cycles when Identity evidence is unavailable', async () => {
+    const s = setup();
+    s.cycle.reachGraceDeadline(DEADLINE);
+    s.evidence.find.mockResolvedValue(null);
+    expect(
+      await s.handler.execute(new LandlordLockGraceScanCommand(DEADLINE)),
     ).toBe(0);
-    expect(s.repository.save).not.toHaveBeenCalled();
+    expect(s.cycle.state).toBe('elapsed');
+    expect(s.contract.status).toBe(ContractStatus.SUSPENDED);
+  });
+
+  it('waits for a newer lock instead of acting on an older cycle', async () => {
+    const s = setup();
+    s.evidence.find.mockResolvedValue({
+      lockedAt: LOCKED_AT.toISOString(),
+      unlockedAt: null,
+      latestLockedAt: new Date(LOCKED_AT.getTime() + 1).toISOString(),
+      observedAt: DEADLINE.toISOString(),
+      state: 'locked',
+    });
+    expect(
+      await s.handler.execute(new LandlordLockGraceScanCommand(DEADLINE)),
+    ).toBe(0);
+    expect(s.contracts.save).not.toHaveBeenCalled();
   });
 
   it('propagates persistence failure to the scheduler for rollback and retry', async () => {

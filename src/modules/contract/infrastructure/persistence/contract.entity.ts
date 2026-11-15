@@ -13,13 +13,18 @@ const moneyTransformer = {
 @Index('IDX_contracts_landlord', ['landlordId'], {
   where: 'is_deleted = false',
 })
-@Index('UQ_contracts_room_active', ['roomId'], {
+@Index('UQ_contracts_room_occupancy', ['roomId'], {
   unique: true,
-  where: "status = 'active'",
+  where:
+    "is_deleted = false AND (status IN ('active', 'suspended') OR (status = 'terminated' AND lock_termination_cycle_id IS NOT NULL AND handover_completed_on IS NULL))",
 })
 @Check(
   'CHK_contracts_tenant_identity',
   "tenant_id IS NOT NULL OR (NULLIF(BTRIM(tenant_name), '') IS NOT NULL AND NULLIF(BTRIM(tenant_phone), '') IS NOT NULL)",
+)
+@Check(
+  'CHK_contracts_lock_handover',
+  "(lock_termination_cycle_id IS NULL AND handover_completed_on IS NULL) OR (lock_termination_cycle_id IS NOT NULL AND status = 'terminated')",
 )
 @Check(
   'CHK_contracts_tenant_name',
@@ -95,4 +100,10 @@ export class ContractTypeormEntity extends AbstractEntity {
 
   @Column({ type: 'uuid', array: true, default: () => "'{}'" })
   signedContractMediaIds: Uuid[];
+
+  @Column({ type: 'uuid', nullable: true })
+  lockTerminationCycleId: Uuid | null;
+
+  @Column({ type: 'date', nullable: true })
+  handoverCompletedOn: string | null;
 }

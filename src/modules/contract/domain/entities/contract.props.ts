@@ -21,6 +21,8 @@ export interface ContractProps extends CreateContractProps {
   activatedAt: Date | null;
   templateKey?: string | null;
   signedContractMediaIds?: Uuid[];
+  lockTerminationCycleId?: Uuid | null;
+  handoverCompletedOn?: string | null;
   createdAt: Date;
   updatedAt: Date;
   isDeleted: boolean;

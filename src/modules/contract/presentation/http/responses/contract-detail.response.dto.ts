@@ -4,6 +4,9 @@ import { ContractEntity } from '../../../domain/entities/contract.entity';
 import { ContractStatus } from '../../../domain/enums/contract-status.enum';
 
 export class ContractDetailResponseDto {
+  @ApiProperty() handoverRequired: boolean;
+  @ApiProperty({ type: String, format: 'date', nullable: true })
+  handoverCompletedOn: string | null;
   @ApiProperty({ type: String, format: 'uuid' })
   id: Uuid;
 
@@ -69,6 +72,8 @@ export class ContractDetailResponseDto {
 
   static fromDomain(contract: ContractEntity): ContractDetailResponseDto {
     const response = new ContractDetailResponseDto();
+    response.handoverRequired = contract.handoverRequired;
+    response.handoverCompletedOn = contract.handoverCompletedOn;
     response.id = contract.id;
     response.roomId = contract.roomId;
     response.status = contract.status;

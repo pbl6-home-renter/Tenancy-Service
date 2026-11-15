@@ -9,13 +9,13 @@ import { LandlordLockCycleProps } from '../../domain/entities/landlord-lock-cycl
   ['landlordId', 'lockedAt'],
   { unique: true },
 )
-@Index('IDX_landlord_lock_cycles_due', ['graceDeadline'], {
-  where: "state = 'pending' AND is_deleted = false",
+@Index('IDX_landlord_lock_cycles_resolution_due', ['graceDeadline'], {
+  where: "state IN ('pending', 'elapsed') AND is_deleted = false",
 })
 @Check('CHK_landlord_lock_cycles_deadline', 'grace_deadline > locked_at')
 @Check(
-  'CHK_landlord_lock_cycles_state',
-  "state IN ('pending', 'elapsed', 'superseded')",
+  'CHK_landlord_lock_cycles_resolution_state',
+  "state IN ('pending', 'elapsed', 'superseded', 'decision_pending', 'completed')",
 )
 export class LandlordLockCycleTypeormEntity extends AbstractEntity {
   @Column({ type: 'uuid' })
@@ -32,4 +32,10 @@ export class LandlordLockCycleTypeormEntity extends AbstractEntity {
 
   @Column({ type: 'varchar', length: 20 })
   state: LandlordLockCycleProps['state'];
+
+  @Column({ type: 'timestamptz', nullable: true })
+  unlockedAt: Date | null;
+
+  @Column({ type: 'jsonb', default: () => "'{}'::jsonb" })
+  decisions: NonNullable<LandlordLockCycleProps['decisions']>;
 }

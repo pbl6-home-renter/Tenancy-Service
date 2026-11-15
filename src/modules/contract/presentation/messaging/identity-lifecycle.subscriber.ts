@@ -22,6 +22,7 @@ import { LandlordLockCycleRepository } from '../../domain/repositories/landlord-
 import { ContractMemberRepository } from '../../domain/repositories/contract-member.repository';
 import { ContractRepository } from '../../domain/repositories/contract.repository';
 import { TenantPhone } from '../../domain/value-objects/tenant-phone.vo';
+import { LandlordLockCycleNotFoundException } from '../../domain/exceptions/landlord-lock-cycle-not-found.exception';
 import {
   UserLifecycleIntegrationEvent,
   UserLockedIntegrationEvent,
@@ -76,8 +77,9 @@ export class IdentityLifecycleSubscriber {
   async handle(event: IntegrationEvent): Promise<void> {
     this.assertUserLifecycleEvent(event);
     await this.handleOnce(event, (context) => {
-      // P9-07 owns contract unlock decisions; only refresh tenant lookup here.
       if (event.eventType === USER_UNLOCKED_EVENT) {
+        if (event.payload.role === UserRole.LANDLORD)
+          return this.onLandlordUnlocked(event, context);
         const { role, phone } = event.payload;
         // Older producers did not include the tenant lookup snapshot.
         if (role === undefined || phone === undefined) return Promise.resolve();
@@ -94,6 +96,47 @@ export class IdentityLifecycleSubscriber {
       }
       return this.onUserChanged(event, context);
     });
+  }
+
+  private async onLandlordUnlocked(
+    event: Extract<
+      UserLifecycleIntegrationEvent,
+      { eventType: typeof USER_UNLOCKED_EVENT }
+    >,
+    context: TransactionContext,
+  ): Promise<void> {
+    if (!event.payload.lockedAt) return;
+    const lockedAt = new Date(event.payload.lockedAt);
+    await this.cycles.lockLandlord(event.payload.userId, context);
+    const cycle = await this.cycles.findLatestForUpdate(
+      event.payload.userId,
+      context,
+    );
+    // An unlock delivered before its lock must be retried through the existing inbox transaction.
+    if (!cycle || cycle.lockedAt < lockedAt)
+      throw new LandlordLockCycleNotFoundException();
+    if (cycle.lockedAt > lockedAt) return;
+    const contracts = await this.contracts.findByIdsForUpdate(
+      cycle.contractIds,
+      context,
+    );
+    const pending = contracts.filter(
+      (contract) =>
+        contract.landlordId === cycle.landlordId &&
+        contract.status === ContractStatus.SUSPENDED,
+    );
+    if (
+      !cycle.beginDecision(
+        new Date(event.occurredAt),
+        pending.map((contract) => contract.id),
+      )
+    )
+      return;
+    await this.cycles.save(cycle, context);
+    await this.outbox.append(
+      cycle.pullDomainEvents().map(OutboxMessage.fromDomainEvent),
+      context,
+    );
   }
 
   private async onUserLocked(
@@ -142,13 +185,9 @@ export class IdentityLifecycleSubscriber {
         contract.id,
         context,
       );
-      const recipients = new Set([
-        landlordId,
-        ...(contract.tenantId ? [contract.tenantId] : []),
-        ...members.flatMap((member) =>
-          member.tenantId ? [member.tenantId] : [],
-        ),
-      ]);
+      const recipients = contract.notificationRecipientIds(
+        members.map((member) => member.tenantId),
+      );
       for (const recipient of recipients) {
         const ids = recipientContracts.get(recipient) ?? [];
         ids.push(contract.id);
@@ -256,6 +295,18 @@ export class IdentityLifecycleSubscriber {
       throw new ValidationException('Invalid user lifecycle integration event');
     }
     if (event.eventType === USER_UNLOCKED_EVENT) {
+      if (
+        event.payload.lockedAt !== undefined &&
+        event.payload.lockedAt !== null &&
+        (typeof event.payload.lockedAt !== 'string' ||
+          !Number.isFinite(Date.parse(event.payload.lockedAt)) ||
+          typeof event.occurredAt !== 'string' ||
+          !Number.isFinite(Date.parse(event.occurredAt)) ||
+          Date.parse(event.occurredAt) < Date.parse(event.payload.lockedAt))
+      )
+        throw new ValidationException(
+          'Invalid user unlock lock-period evidence',
+        );
       if (
         event.payload.status !== UserStatus.ACTIVE ||
         (event.payload.role !== undefined &&

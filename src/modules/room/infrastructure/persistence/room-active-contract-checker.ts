@@ -23,9 +23,18 @@ export class TypeOrmRoomActiveContractChecker implements RoomActiveContractCheck
     roomId: Uuid,
     context?: TransactionContext,
   ): Promise<boolean> {
-    return withTransaction(this.repository, context).existsBy({
-      roomId,
-      status: ContractStatus.ACTIVE,
-    });
+    return withTransaction(this.repository, context)
+      .createQueryBuilder('contract')
+      .where('contract.roomId = :roomId AND contract.isDeleted = false', {
+        roomId,
+      })
+      .andWhere(
+        '(contract.status IN (:...statuses) OR (contract.status = :terminated AND contract.lockTerminationCycleId IS NOT NULL AND contract.handoverCompletedOn IS NULL))',
+        {
+          statuses: [ContractStatus.ACTIVE, ContractStatus.SUSPENDED],
+          terminated: ContractStatus.TERMINATED,
+        },
+      )
+      .getExists();
   }
 }
