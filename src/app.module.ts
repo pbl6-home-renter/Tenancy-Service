@@ -16,6 +16,7 @@ import { InvoiceModule } from 'modules/invoice/invoice.module';
 import { AdministrativeUnitModule } from 'modules/administrative-unit/administrative-unit.module';
 import { MediaOwnershipModule } from 'modules/media/media-ownership.module';
 import { IssueContextModule } from 'modules/issue-context/issue-context.module';
+import { RoommateProfileModule } from 'modules/roommate-profile/roommate-profile.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { IssueContextModule } from 'modules/issue-context/issue-context.module';
     AdministrativeUnitModule,
     MediaOwnershipModule,
     IssueContextModule,
+    RoommateProfileModule,
   ],
   providers: [
     {
