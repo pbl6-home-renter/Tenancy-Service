@@ -4,13 +4,50 @@ jest.mock('@nestjs/typeorm', () => ({
 }));
 import { DataSource, SelectQueryBuilder } from 'typeorm';
 import { RoommateProfileEntity } from 'modules/roommate-profile/infrastructure/persistence/roommate-profile.entity';
-import { RoommateProfileService } from 'modules/roommate-profile/roommate-profile.service';
+import { RoommateProfileService } from 'modules/roommate-profile/application/roommate-profile.service';
+import { TypeOrmRoommateProfileRepository } from 'modules/roommate-profile/infrastructure/persistence/roommate-profile.repository';
+import { IdentityTenantDirectoryAdapter } from 'modules/roommate-profile/infrastructure/users/identity-tenant-directory.adapter';
 import { SnakeNamingStrategy } from 'shared/infrastructure/database/snake-naming.strategy';
 import { UserRole } from 'shared/domain/enums/user-role.enum';
 import { UserStatus } from 'shared/domain/enums/user-status.enum';
 import { generateUuid } from 'shared/domain/value-objects/uuid.vo';
+import { RoommateProfileRepositoryPort } from 'modules/roommate-profile/application/ports/roommate-profile.repository.port';
+import { TenantDirectoryPort } from 'modules/roommate-profile/application/ports/tenant-directory.port';
 
 describe('roommate profile search', () => {
+  it('lets an owner read a hidden profile while direct public detail stays hidden', async () => {
+    const tenantId = generateUuid();
+    const own = Object.assign(new RoommateProfileEntity(), {
+      id: generateUuid(),
+      tenantId,
+      isVisible: false,
+      bio: null,
+    });
+    const repository = {
+      findOwn: jest.fn().mockResolvedValue(own),
+      findDiscoverable: jest.fn().mockResolvedValue(null),
+    } as unknown as RoommateProfileRepositoryPort;
+    const directory = {
+      findActive: jest.fn().mockResolvedValue(
+        new Map([
+          [
+            tenantId.toLowerCase(),
+            {
+              id: tenantId,
+              name: 'Tenant',
+              avatarUrl: null,
+            },
+          ],
+        ]),
+      ),
+    } as unknown as TenantDirectoryPort;
+    const service = new RoommateProfileService(repository, directory);
+    expect(await service.mine(tenantId)).toMatchObject({ isVisible: false });
+    await expect(service.detail(tenantId, own.id)).rejects.toMatchObject({
+      code: 'ROOMMATE_PROFILE_NOT_FOUND',
+    });
+  });
+
   it('checks live occupancy and filters inactive Identity users before pagination', async () => {
     const db = new DataSource({
       type: 'postgres',
@@ -58,8 +95,10 @@ describe('roommate profile search', () => {
     };
     try {
       const service = new RoommateProfileService(
-        db.getRepository(RoommateProfileEntity),
-        client as never,
+        new TypeOrmRoommateProfileRepository(
+          db.getRepository(RoommateProfileEntity),
+        ),
+        new IdentityTenantDirectoryAdapter(client as never),
       );
       const result = await service.search(viewerId, {
         pageNo: 1,
