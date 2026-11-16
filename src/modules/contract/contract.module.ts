@@ -1,4 +1,8 @@
 import { Module } from '@nestjs/common';
+import { ContractTenantController } from './presentation/http/controllers/contract-tenant.controller';
+import { ContractTenantListQueryHandler } from './application/queries/contract-tenant-list/contract-tenant-list.query.handler';
+import { ContractTenantGetByIdQueryHandler } from './application/queries/contract-tenant-get-by-id/contract-tenant-get-by-id.query.handler';
+import { TypeOrmContractTenantReadQuery } from './infrastructure/persistence/contract-tenant-read.query';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CqrsModule } from '@nestjs/cqrs';
 import { ContractLockDecisionCommandHandler } from './application/commands/contract-lock-decision/contract-lock-decision.command.handler';
@@ -66,6 +70,8 @@ const commandHandlers = [
   ContractActivateCommandHandler,
 ];
 const queryHandlers = [
+  ContractTenantListQueryHandler,
+  ContractTenantGetByIdQueryHandler,
   RoomHubListQueryHandler,
   ContractDraftDocumentGenerateQueryHandler,
   ContractMyListQueryHandler,
@@ -95,6 +101,7 @@ const queryHandlers = [
     InternalHttpModule,
   ],
   controllers: [
+    ContractTenantController,
     RoomHubController,
     ContractMyController,
     ContractController,
@@ -102,6 +109,10 @@ const queryHandlers = [
     ContractMemberController,
   ],
   providers: [
+    {
+      provide: CONTRACT_DI_TOKEN.TENANT_READ,
+      useClass: TypeOrmContractTenantReadQuery,
+    },
     {
       provide: CONTRACT_DI_TOKEN.LANDLORD_LOCK_EVIDENCE,
       useClass: IdentityLandlordLockEvidenceReader,
