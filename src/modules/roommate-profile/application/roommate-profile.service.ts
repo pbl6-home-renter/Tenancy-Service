@@ -7,11 +7,16 @@ import { RoommateProfileNotFoundException } from '../domain/exceptions/roommate-
 import { RoommateTenantInactiveException } from '../domain/exceptions/roommate-tenant-inactive.exception';
 import { RoommateProfileRecord } from '../domain/roommate-profile.types';
 import { ROOMMATE_PROFILE_DI_TOKEN } from '../roommate-profile.di-token';
-import { RoommateProfileRepositoryPort } from './ports/roommate-profile.repository.port';
+import { RoommateProfileRepository } from '../domain/repositories/roommate-profile.repository';
+import { RoommateProfileReadPort } from './ports/roommate-profile-read.port';
 import {
   TenantDirectoryPort,
   TenantSummary,
 } from './ports/tenant-directory.port';
+import {
+  MyRoommateProfileResult,
+  PublicRoommateProfileResult,
+} from './roommate-profile.result';
 
 export interface ProfileSearchOptions {
   pageNo: number;
@@ -23,7 +28,9 @@ export interface ProfileSearchOptions {
 export class RoommateProfileService {
   constructor(
     @Inject(ROOMMATE_PROFILE_DI_TOKEN.REPOSITORY)
-    private readonly profiles: RoommateProfileRepositoryPort,
+    private readonly profiles: RoommateProfileRepository,
+    @Inject(ROOMMATE_PROFILE_DI_TOKEN.READ_REPOSITORY)
+    private readonly reads: RoommateProfileReadPort,
     @Inject(ROOMMATE_PROFILE_DI_TOKEN.TENANT_DIRECTORY)
     private readonly tenants: TenantDirectoryPort,
   ) {}
@@ -43,7 +50,7 @@ export class RoommateProfileService {
 
   async detail(viewerId: string, profileId: string) {
     await this.requireActiveTenant(viewerId);
-    const profile = await this.profiles.findDiscoverable(profileId);
+    const profile = await this.reads.findDiscoverable(profileId);
     if (!profile) throw new RoommateProfileNotFoundException();
     const user = (await this.tenants.findActive([profile.tenantId])).get(
       profile.tenantId.toLowerCase(),
@@ -54,33 +61,22 @@ export class RoommateProfileService {
 
   async search(viewerId: string, options: ProfileSearchOptions) {
     await this.requireActiveTenant(viewerId);
-    const candidates = await this.profiles.findCandidates(
+    const candidateIds = await this.reads.findCandidateTenantIds(
       viewerId,
       options.preferredArea,
     );
-    const users = await this.tenants.findActive(
-      candidates.map((p) => p.tenantId),
+    const users = await this.tenants.findActive(candidateIds);
+    const page = await this.reads.findPage(viewerId, [...users.keys()], {
+      pageNo: options.pageNo,
+      pageSize: options.pageSize,
+      filter: { preferredArea: options.preferredArea },
+    });
+    const data = page.data.map((p) =>
+      this.publicView(p, users.get(p.tenantId.toLowerCase())!),
     );
-    const eligible = candidates.filter((p) =>
-      users.has(p.tenantId.toLowerCase()),
-    );
-    const start = (options.pageNo - 1) * options.pageSize;
-    const data = eligible
-      .slice(start, start + options.pageSize)
-      .map((p) => this.publicView(p, users.get(p.tenantId.toLowerCase())!));
-    const totalItems = eligible.length;
-    const totalPages = Math.ceil(totalItems / options.pageSize);
     return {
       data,
-      pagination: {
-        type: 'offset' as const,
-        pageNo: options.pageNo,
-        pageSize: options.pageSize,
-        totalItems,
-        totalPages,
-        hasNextPage: options.pageNo < totalPages,
-        hasPreviousPage: options.pageNo > 1,
-      },
+      pagination: page.pagination,
     };
   }
 
@@ -90,7 +86,10 @@ export class RoommateProfileService {
     }
   }
 
-  private publicView(profile: RoommateProfileRecord, user: TenantSummary) {
+  private publicView(
+    profile: RoommateProfileRecord,
+    user: TenantSummary,
+  ): PublicRoommateProfileResult {
     return {
       ...this.ownView(profile),
       isVisible: true,
@@ -99,7 +98,7 @@ export class RoommateProfileService {
     };
   }
 
-  private ownView(profile: RoommateProfileRecord) {
+  private ownView(profile: RoommateProfileRecord): MyRoommateProfileResult {
     return {
       id: profile.id,
       tenantId: profile.tenantId,

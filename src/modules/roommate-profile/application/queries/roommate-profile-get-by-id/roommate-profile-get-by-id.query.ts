@@ -1,6 +1,6 @@
 import { IQuery } from '@nestjs/cqrs';
 
-export class GetRoommateProfileQuery implements IQuery {
+export class RoommateProfileGetByIdQuery implements IQuery {
   constructor(
     readonly viewerId: string,
     readonly profileId: string,

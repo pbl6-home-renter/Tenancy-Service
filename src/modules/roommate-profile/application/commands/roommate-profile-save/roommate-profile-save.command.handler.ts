@@ -1,11 +1,11 @@
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { RoommateProfileService } from '../../roommate-profile.service';
-import { SaveRoommateProfileCommand } from './save-roommate-profile.command';
+import { RoommateProfileSaveCommand } from './roommate-profile-save.command';
 
-@CommandHandler(SaveRoommateProfileCommand)
-export class SaveRoommateProfileCommandHandler implements ICommandHandler<SaveRoommateProfileCommand> {
+@CommandHandler(RoommateProfileSaveCommand)
+export class RoommateProfileSaveCommandHandler implements ICommandHandler<RoommateProfileSaveCommand> {
   constructor(private readonly service: RoommateProfileService) {}
-  execute(command: SaveRoommateProfileCommand) {
+  execute(command: RoommateProfileSaveCommand) {
     return this.service.save(command.tenantId, command.details);
   }
 }

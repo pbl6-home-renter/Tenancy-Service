@@ -11,7 +11,8 @@ import { SnakeNamingStrategy } from 'shared/infrastructure/database/snake-naming
 import { UserRole } from 'shared/domain/enums/user-role.enum';
 import { UserStatus } from 'shared/domain/enums/user-status.enum';
 import { generateUuid } from 'shared/domain/value-objects/uuid.vo';
-import { RoommateProfileRepositoryPort } from 'modules/roommate-profile/application/ports/roommate-profile.repository.port';
+import { RoommateProfileRepository } from 'modules/roommate-profile/domain/repositories/roommate-profile.repository';
+import { RoommateProfileReadPort } from 'modules/roommate-profile/application/ports/roommate-profile-read.port';
 import { TenantDirectoryPort } from 'modules/roommate-profile/application/ports/tenant-directory.port';
 
 describe('roommate profile search', () => {
@@ -26,7 +27,7 @@ describe('roommate profile search', () => {
     const repository = {
       findOwn: jest.fn().mockResolvedValue(own),
       findDiscoverable: jest.fn().mockResolvedValue(null),
-    } as unknown as RoommateProfileRepositoryPort;
+    } as unknown as RoommateProfileRepository & RoommateProfileReadPort;
     const directory = {
       findActive: jest.fn().mockResolvedValue(
         new Map([
@@ -41,7 +42,11 @@ describe('roommate profile search', () => {
         ]),
       ),
     } as unknown as TenantDirectoryPort;
-    const service = new RoommateProfileService(repository, directory);
+    const service = new RoommateProfileService(
+      repository,
+      repository,
+      directory,
+    );
     expect(await service.mine(tenantId)).toMatchObject({ isVisible: false });
     await expect(service.detail(tenantId, own.id)).rejects.toMatchObject({
       code: 'ROOMMATE_PROFILE_NOT_FOUND',
@@ -68,13 +73,21 @@ describe('roommate profile search', () => {
         bio: 'Hello',
       });
     let sql = '';
+    let parameters: Record<string, unknown> = {};
+    const candidateRows = jest
+      .spyOn(SelectQueryBuilder.prototype, 'getRawMany')
+      .mockResolvedValue([{ tenantId: inactiveId }, { tenantId }]);
+    const count = jest
+      .spyOn(SelectQueryBuilder.prototype, 'getCount')
+      .mockResolvedValue(1);
     const rows = jest
       .spyOn(SelectQueryBuilder.prototype, 'getMany')
       .mockImplementation(function (
         this: SelectQueryBuilder<RoommateProfileEntity>,
       ) {
         sql = this.getQuery();
-        return Promise.resolve([profile(inactiveId), profile(tenantId)]);
+        parameters = this.getParameters();
+        return Promise.resolve([profile(tenantId)]);
       });
     const client = {
       get: jest.fn(
@@ -98,6 +111,9 @@ describe('roommate profile search', () => {
         new TypeOrmRoommateProfileRepository(
           db.getRepository(RoommateProfileEntity),
         ),
+        new TypeOrmRoommateProfileRepository(
+          db.getRepository(RoommateProfileEntity),
+        ),
         new IdentityTenantDirectoryAdapter(client as never),
       );
       const result = await service.search(viewerId, {
@@ -108,12 +124,16 @@ describe('roommate profile search', () => {
       expect(sql).toContain('COUNT(DISTINCT COALESCE(cm.tenant_id, cm.id))');
       expect(sql).toContain('cm.left_at > CURRENT_DATE');
       expect(sql).toContain('"p"."tenant_id" != :viewerId');
+      expect(parameters.activeTenantIds).toEqual([tenantId.toLowerCase()]);
+      expect(sql).toContain('LIMIT 20 OFFSET 0');
       expect(result.pagination.totalItems).toBe(1);
       expect(result.data).toHaveLength(1);
       expect(result.data[0]).toMatchObject({ tenantId, tenantName: 'Tenant' });
       expect(result.data[0]).not.toHaveProperty('isDeleted');
     } finally {
       rows.mockRestore();
+      candidateRows.mockRestore();
+      count.mockRestore();
     }
   });
 });

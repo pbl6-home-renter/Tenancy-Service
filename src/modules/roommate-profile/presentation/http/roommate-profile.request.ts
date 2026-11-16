@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { RoommateProfileSaveInput } from '../../application/commands/roommate-profile-save/roommate-profile-save.command';
 import { Type } from 'class-transformer';
 import {
   IsBoolean,
@@ -44,7 +45,7 @@ export class LifestyleRequest {
   guestsAllowed?: boolean;
 }
 
-export class SaveRoommateProfileRequest {
+export class RoommateProfileSaveRequest implements RoommateProfileSaveInput {
   @ApiProperty()
   @IsBoolean()
   isVisible: boolean;
@@ -113,7 +114,7 @@ export class SaveRoommateProfileRequest {
   lifestyle?: LifestyleRequest | null;
 }
 
-export class SearchRoommateProfilesRequest {
+export class RoommateProfileSearchRequest {
   @ApiPropertyOptional({ default: 1 })
   @IsOptional()
   @Type(() => Number)
