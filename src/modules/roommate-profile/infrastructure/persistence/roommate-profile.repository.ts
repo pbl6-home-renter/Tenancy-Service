@@ -1,8 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, SelectQueryBuilder } from 'typeorm';
+import { OffsetPageQuery } from 'shared/application/pagination/offset-page-query';
+import { PaginatedResult } from 'shared/application/pagination/paginated-result';
 import { RoommateProfileDetails } from '../../domain/value-objects/roommate-profile-details.vo';
-import { RoommateProfileRepositoryPort } from '../../application/ports/roommate-profile.repository.port';
+import { RoommateProfileRepository } from '../../domain/repositories/roommate-profile.repository';
+import { RoommateProfileReadPort } from '../../application/ports/roommate-profile-read.port';
 import { RoommateProfileEntity } from './roommate-profile.entity';
 
 // Lead tenant counts once; linked current members are distinct by tenant ID.
@@ -40,7 +43,9 @@ export const DISCOVERABLE = `p.is_visible = true AND p.is_deleted = false
   )`;
 
 @Injectable()
-export class TypeOrmRoommateProfileRepository implements RoommateProfileRepositoryPort {
+export class TypeOrmRoommateProfileRepository
+  implements RoommateProfileRepository, RoommateProfileReadPort
+{
   constructor(
     @InjectRepository(RoommateProfileEntity)
     private readonly profiles: Repository<RoommateProfileEntity>,
@@ -69,10 +74,66 @@ export class TypeOrmRoommateProfileRepository implements RoommateProfileReposito
       .getOne();
   }
 
-  findCandidates(
+  async findCandidateTenantIds(
     viewerId: string,
     preferredArea?: string,
-  ): Promise<RoommateProfileEntity[]> {
+  ): Promise<string[]> {
+    const rows = await this.candidateQuery(viewerId, preferredArea)
+      .select('p.tenantId', 'tenantId')
+      .getRawMany<{ tenantId: string }>();
+    return rows.map((row) => row.tenantId);
+  }
+
+  async findPage(
+    viewerId: string,
+    activeTenantIds: string[],
+    options: OffsetPageQuery<{ preferredArea?: string }>,
+  ): Promise<PaginatedResult<RoommateProfileEntity>> {
+    const { pageNo, pageSize } = options;
+    if (activeTenantIds.length === 0) {
+      return {
+        data: [],
+        pagination: {
+          type: 'offset',
+          pageNo,
+          pageSize,
+          totalItems: 0,
+          totalPages: 0,
+          hasNextPage: false,
+          hasPreviousPage: pageNo > 1,
+        },
+      };
+    }
+    const query = this.candidateQuery(
+      viewerId,
+      options.filter?.preferredArea,
+    ).andWhere('p.tenantId IN (:...activeTenantIds)', { activeTenantIds });
+    const totalItems = await query.clone().getCount();
+    const data = await query
+      .orderBy('p.createdAt', 'DESC')
+      .addOrderBy('p.id', 'ASC')
+      .offset((pageNo - 1) * pageSize)
+      .limit(pageSize)
+      .getMany();
+    const totalPages = Math.ceil(totalItems / pageSize);
+    return {
+      data,
+      pagination: {
+        type: 'offset',
+        pageNo,
+        pageSize,
+        totalItems,
+        totalPages,
+        hasNextPage: pageNo < totalPages,
+        hasPreviousPage: pageNo > 1,
+      },
+    };
+  }
+
+  private candidateQuery(
+    viewerId: string,
+    preferredArea?: string,
+  ): SelectQueryBuilder<RoommateProfileEntity> {
     const query = this.profiles
       .createQueryBuilder('p')
       .where(DISCOVERABLE)
@@ -82,9 +143,6 @@ export class TypeOrmRoommateProfileRepository implements RoommateProfileReposito
         area: `%${preferredArea.replace(/[\\%_]/g, '\\$&')}%`,
       });
     }
-    return query
-      .orderBy('p.created_at', 'DESC')
-      .addOrderBy('p.id', 'ASC')
-      .getMany();
+    return query;
   }
 }

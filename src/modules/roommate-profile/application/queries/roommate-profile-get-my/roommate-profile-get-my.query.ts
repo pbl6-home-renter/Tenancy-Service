@@ -1,5 +1,5 @@
 import { IQuery } from '@nestjs/cqrs';
 
-export class GetMyRoommateProfileQuery implements IQuery {
+export class RoommateProfileGetMyQuery implements IQuery {
   constructor(readonly tenantId: string) {}
 }

@@ -8,10 +8,10 @@ import { IdentityTenantDirectoryAdapter } from './infrastructure/users/identity-
 import { RoommateProfileController } from './presentation/http/roommate-profile.controller';
 import { RoommateProfileService } from './application/roommate-profile.service';
 import { ROOMMATE_PROFILE_DI_TOKEN } from './roommate-profile.di-token';
-import { SaveRoommateProfileCommandHandler } from './application/commands/save-roommate-profile/save-roommate-profile.command.handler';
-import { GetMyRoommateProfileQueryHandler } from './application/queries/get-my-roommate-profile/get-my-roommate-profile.query.handler';
-import { GetRoommateProfileQueryHandler } from './application/queries/get-roommate-profile/get-roommate-profile.query.handler';
-import { SearchRoommateProfilesQueryHandler } from './application/queries/search-roommate-profiles/search-roommate-profiles.query.handler';
+import { RoommateProfileSaveCommandHandler } from './application/commands/roommate-profile-save/roommate-profile-save.command.handler';
+import { RoommateProfileGetMyQueryHandler } from './application/queries/roommate-profile-get-my/roommate-profile-get-my.query.handler';
+import { RoommateProfileGetByIdQueryHandler } from './application/queries/roommate-profile-get-by-id/roommate-profile-get-by-id.query.handler';
+import { RoommateProfileSearchQueryHandler } from './application/queries/roommate-profile-search/roommate-profile-search.query.handler';
 
 @Module({
   imports: [
@@ -22,13 +22,17 @@ import { SearchRoommateProfilesQueryHandler } from './application/queries/search
   controllers: [RoommateProfileController],
   providers: [
     RoommateProfileService,
-    SaveRoommateProfileCommandHandler,
-    GetMyRoommateProfileQueryHandler,
-    GetRoommateProfileQueryHandler,
-    SearchRoommateProfilesQueryHandler,
+    RoommateProfileSaveCommandHandler,
+    RoommateProfileGetMyQueryHandler,
+    RoommateProfileGetByIdQueryHandler,
+    RoommateProfileSearchQueryHandler,
     {
       provide: ROOMMATE_PROFILE_DI_TOKEN.REPOSITORY,
       useClass: TypeOrmRoommateProfileRepository,
+    },
+    {
+      provide: ROOMMATE_PROFILE_DI_TOKEN.READ_REPOSITORY,
+      useExisting: ROOMMATE_PROFILE_DI_TOKEN.REPOSITORY,
     },
     {
       provide: ROOMMATE_PROFILE_DI_TOKEN.TENANT_DIRECTORY,
