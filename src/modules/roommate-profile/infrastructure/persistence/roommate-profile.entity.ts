@@ -1,15 +1,9 @@
 import { Check, Column, Entity, Index } from 'typeorm';
 import { AbstractEntity } from 'shared/infrastructure/database/abstract.typeorm-entity';
-
-export interface RoommateLifestyle {
-  cleanAndTidy?: boolean;
-  earlyBird?: boolean;
-  nightOwl?: boolean;
-  petFriendly?: boolean;
-  smoking?: boolean;
-  cooking?: boolean;
-  guestsAllowed?: boolean;
-}
+import {
+  RoommateLifestyle,
+  RoommateProfileRecord,
+} from '../../domain/roommate-profile.types';
 
 const numeric = {
   to: (value: number | null): number | null => value,
@@ -30,7 +24,10 @@ const numeric = {
   'CHK_roommate_profiles_visible_bio',
   "is_visible = false OR NULLIF(BTRIM(bio), '') IS NOT NULL",
 )
-export class RoommateProfileEntity extends AbstractEntity {
+export class RoommateProfileEntity
+  extends AbstractEntity
+  implements RoommateProfileRecord
+{
   @Column({ type: 'uuid' })
   tenantId: string;
 

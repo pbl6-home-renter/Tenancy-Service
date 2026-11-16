@@ -15,19 +15,46 @@ import {
 } from 'class-validator';
 
 export class LifestyleRequest {
-  @IsOptional() @IsBoolean() cleanAndTidy?: boolean;
-  @IsOptional() @IsBoolean() earlyBird?: boolean;
-  @IsOptional() @IsBoolean() nightOwl?: boolean;
-  @IsOptional() @IsBoolean() petFriendly?: boolean;
-  @IsOptional() @IsBoolean() smoking?: boolean;
-  @IsOptional() @IsBoolean() cooking?: boolean;
-  @IsOptional() @IsBoolean() guestsAllowed?: boolean;
+  @IsOptional()
+  @IsBoolean()
+  cleanAndTidy?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  earlyBird?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  nightOwl?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  petFriendly?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  smoking?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  cooking?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  guestsAllowed?: boolean;
 }
 
 export class SaveRoommateProfileRequest {
-  @ApiProperty() @IsBoolean() isVisible: boolean;
-  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(1000) bio?:
-    string | null;
+  @ApiProperty()
+  @IsBoolean()
+  isVisible: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  bio?: string | null;
+
   @ApiPropertyOptional({ enum: ['male', 'female', 'other'] })
   @IsOptional()
   @IsIn(['male', 'female', 'other'])
@@ -39,8 +66,11 @@ export class SaveRoommateProfileRequest {
   @Min(1900)
   @Max(2100)
   birthYear?: number | null;
-  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(100) occupation?:
-    string | null;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  occupation?: string | null;
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
@@ -61,12 +91,14 @@ export class SaveRoommateProfileRequest {
   @Type(() => Number)
   @IsInt()
   @Min(0)
+  @Max(999_999_999_999_999)
   budgetMin?: number | null;
   @ApiPropertyOptional()
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(0)
+  @Max(999_999_999_999_999)
   budgetMax?: number | null;
   @ApiPropertyOptional({ format: 'date' })
   @IsOptional()
