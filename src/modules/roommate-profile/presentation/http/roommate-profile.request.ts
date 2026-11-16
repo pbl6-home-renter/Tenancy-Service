@@ -114,6 +114,10 @@ export class RoommateProfileSaveRequest implements RoommateProfileSaveInput {
   lifestyle?: LifestyleRequest | null;
 }
 
+export class RoommateProfileFilter {
+  @IsOptional() @IsString() @MaxLength(255) preferredArea?: string;
+}
+
 export class RoommateProfileSearchRequest {
   @ApiPropertyOptional({ default: 1 })
   @IsOptional()
@@ -134,8 +138,4 @@ export class RoommateProfileSearchRequest {
   @ValidateNested()
   @Type(() => RoommateProfileFilter)
   filter?: RoommateProfileFilter;
-}
-
-export class RoommateProfileFilter {
-  @IsOptional() @IsString() @MaxLength(255) preferredArea?: string;
 }
