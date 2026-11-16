@@ -3,6 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, SelectQueryBuilder } from 'typeorm';
 import { OffsetPageQuery } from 'shared/application/pagination/offset-page-query';
 import { PaginatedResult } from 'shared/application/pagination/paginated-result';
+import { TransactionContext } from 'shared/domain/repositories/transaction-context';
+import { withTransaction } from 'shared/infrastructure/database/transaction/typeorm-transaction-context';
 import { RoommateProfileDetails } from '../../domain/value-objects/roommate-profile-details.vo';
 import { RoommateProfileRepository } from '../../domain/repositories/roommate-profile.repository';
 import { RoommateProfileReadPort } from '../../application/ports/roommate-profile-read.port';
@@ -71,6 +73,18 @@ export class TypeOrmRoommateProfileRepository
       .createQueryBuilder('p')
       .where('p.id = :id', { id })
       .andWhere(DISCOVERABLE)
+      .getOne();
+  }
+
+  findDiscoverableByTenantId(
+    id: string,
+    context: TransactionContext,
+  ): Promise<RoommateProfileEntity | null> {
+    return withTransaction(this.profiles, context)
+      .createQueryBuilder('p')
+      .where('p.tenant_id = :id', { id })
+      .andWhere(DISCOVERABLE)
+      .setLock('pessimistic_write')
       .getOne();
   }
 

@@ -17,6 +17,7 @@ import { AdministrativeUnitModule } from 'modules/administrative-unit/administra
 import { MediaOwnershipModule } from 'modules/media/media-ownership.module';
 import { IssueContextModule } from 'modules/issue-context/issue-context.module';
 import { RoommateProfileModule } from 'modules/roommate-profile/roommate-profile.module';
+import { MatchRequestModule } from 'modules/match-request/match-request.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { RoommateProfileModule } from 'modules/roommate-profile/roommate-profile
     MediaOwnershipModule,
     IssueContextModule,
     RoommateProfileModule,
+    MatchRequestModule,
   ],
   providers: [
     {

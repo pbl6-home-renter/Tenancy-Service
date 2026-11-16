@@ -39,5 +39,9 @@ import { RoommateProfileSearchQueryHandler } from './application/queries/roommat
       useClass: IdentityTenantDirectoryAdapter,
     },
   ],
+  exports: [
+    ROOMMATE_PROFILE_DI_TOKEN.READ_REPOSITORY,
+    ROOMMATE_PROFILE_DI_TOKEN.TENANT_DIRECTORY,
+  ],
 })
 export class RoommateProfileModule {}
