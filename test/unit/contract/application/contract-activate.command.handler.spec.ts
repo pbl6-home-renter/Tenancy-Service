@@ -12,12 +12,16 @@ import { OutboxRepository } from 'modules/outbox/domain/repositories/outbox.repo
 import { IUnitOfWork } from 'shared/application/ports/unit-of-work.port';
 import { TransactionContext } from 'shared/domain/repositories/transaction-context';
 import { generateUuid } from 'shared/domain/value-objects/uuid.vo';
+import { createLinkDependencies } from '../support/contract-link.fixture';
 
-function createContract(landlordId: ReturnType<typeof generateUuid>) {
+function createContract(
+  landlordId: ReturnType<typeof generateUuid>,
+  tenantId: ReturnType<typeof generateUuid> | null = generateUuid(),
+) {
   return ContractEntity.create({
     landlordId,
     roomId: generateUuid(),
-    tenantId: generateUuid(),
+    tenantId,
     tenantName: 'Tenant One',
     tenantPhone: '0912345678',
     depositAmount: 5_000_000,
@@ -39,118 +43,150 @@ function createRoom(landlordId: ReturnType<typeof generateUuid>) {
 }
 
 describe('ContractActivateCommandHandler', () => {
-  it('activates the contract, occupies its room, and appends all events in one transaction', async () => {
-    const landlordId = generateUuid();
-    const contract = createContract(landlordId);
-    const room = createRoom(landlordId);
-    const context: TransactionContext = { kind: 'transaction' };
-    const mediaId = generateUuid();
-    const mediaLookup: MediaLookupPort = {
-      findMedia: jest.fn(async () => null),
-      findMediaByIds: jest.fn(async () => [
-        {
-          id: mediaId,
-          ownerType: 'contract',
-          ownerId: contract.id,
-          purpose: 'contract_signed',
-          status: 'uploaded',
-        },
-      ]),
-    };
-    const memberRepository = {
-      findActiveByContract: jest.fn(
-        async (_contractId: string, passedContext: TransactionContext) => {
-          expect(passedContext).toBe(context);
-          return [];
-        },
-      ),
-      save: jest.fn(
-        async (_member: ContractMember, passedContext: TransactionContext) => {
-          expect(passedContext).toBe(context);
-        },
-      ),
-    } as unknown as ContractMemberRepository;
-    const contractRepository = {
-      existsBlockingByRoom: jest.fn(async () => false),
-      findByIdForUpdate: jest.fn(
-        async (_id: string, passedContext: TransactionContext) => {
-          expect(passedContext).toBe(context);
-          return contract;
-        },
-      ),
-      save: jest.fn(
-        async (_entity: ContractEntity, passedContext: TransactionContext) => {
-          expect(passedContext).toBe(context);
-        },
-      ),
-    } as unknown as ContractRepository;
-    const roomRepository = {
-      findByIdForUpdate: jest.fn(
-        async (_id: string, passedContext: TransactionContext) => {
-          expect(passedContext).toBe(context);
-          return room;
-        },
-      ),
-      save: jest.fn(
-        async (_entity: Room, passedContext: TransactionContext) => {
-          expect(passedContext).toBe(context);
-        },
-      ),
-    } as unknown as RoomRepository;
-    const outboxRepository = {
-      append: jest.fn(async () => undefined),
-    } as unknown as OutboxRepository;
-    const unitOfWork: IUnitOfWork = {
-      run: jest.fn(async (work) => work(context)),
-    };
-    const handler = new ContractActivateCommandHandler(
-      memberRepository,
-      contractRepository,
-      roomRepository,
-      unitOfWork,
-      outboxRepository,
-      mediaLookup,
-    );
+  it.each(['explicit', 'phone', 'unmatched'])(
+    'activates with %s tenant identity and appends all events in one transaction',
+    async (mode) => {
+      const landlordId = generateUuid();
+      const contract = createContract(
+        landlordId,
+        mode === 'explicit' ? generateUuid() : null,
+      );
+      const { projection } = createLinkDependencies();
+      const projectedId = generateUuid();
+      projection.findTenantIdByPhone.mockResolvedValue(
+        mode === 'unmatched' ? null : projectedId,
+      );
+      const room = createRoom(landlordId);
+      const context: TransactionContext = { kind: 'transaction' };
+      const mediaId = generateUuid();
+      const mediaLookup: MediaLookupPort = {
+        findMedia: jest.fn(async () => null),
+        findMediaByIds: jest.fn(async () => [
+          {
+            id: mediaId,
+            ownerType: 'contract',
+            ownerId: contract.id,
+            purpose: 'contract_signed',
+            status: 'uploaded',
+          },
+        ]),
+      };
+      const memberRepository = {
+        findActiveByContract: jest.fn(
+          async (_contractId: string, passedContext: TransactionContext) => {
+            expect(passedContext).toBe(context);
+            return [];
+          },
+        ),
+        save: jest.fn(
+          async (
+            _member: ContractMember,
+            passedContext: TransactionContext,
+          ) => {
+            expect(passedContext).toBe(context);
+          },
+        ),
+      } as unknown as ContractMemberRepository;
+      const contractRepository = {
+        findById: jest.fn(async () => contract),
+        existsBlockingByRoom: jest.fn(async () => false),
+        findByIdForUpdate: jest.fn(
+          async (_id: string, passedContext: TransactionContext) => {
+            expect(passedContext).toBe(context);
+            return contract;
+          },
+        ),
+        save: jest.fn(
+          async (
+            _entity: ContractEntity,
+            passedContext: TransactionContext,
+          ) => {
+            expect(passedContext).toBe(context);
+          },
+        ),
+      } as unknown as ContractRepository;
+      const roomRepository = {
+        findByIdForUpdate: jest.fn(
+          async (_id: string, passedContext: TransactionContext) => {
+            expect(passedContext).toBe(context);
+            return room;
+          },
+        ),
+        save: jest.fn(
+          async (_entity: Room, passedContext: TransactionContext) => {
+            expect(passedContext).toBe(context);
+          },
+        ),
+      } as unknown as RoomRepository;
+      const outboxRepository = {
+        append: jest.fn(async () => undefined),
+      } as unknown as OutboxRepository;
+      const unitOfWork: IUnitOfWork = {
+        run: jest.fn(async (work) => work(context)),
+      };
+      const handler = new ContractActivateCommandHandler(
+        memberRepository,
+        contractRepository,
+        roomRepository,
+        unitOfWork,
+        outboxRepository,
+        mediaLookup,
+        projection,
+      );
 
-    const result = await handler.execute(
-      new ContractActivateCommand(contract.id, landlordId, [mediaId]),
-    );
+      const result = await handler.execute(
+        new ContractActivateCommand(contract.id, landlordId, [mediaId]),
+      );
 
-    expect(result).toBe(contract);
-    expect(contract.status).toBe('active');
-    expect(contract.signedContractMediaIds).toEqual([mediaId]);
-    expect(room.status).toBe('occupied');
-    expect(memberRepository.save).toHaveBeenCalledWith(
-      expect.objectContaining({
-        contractId: contract.id,
-        tenantId: contract.tenantId,
-      }),
-      context,
-    );
-    expect(outboxRepository.append).toHaveBeenCalledWith(
-      expect.arrayContaining([
-        expect.objectContaining({ eventType: 'contract.activated' }),
-        expect.objectContaining({ eventType: 'room.status_changed' }),
-        expect.objectContaining({ eventType: 'contract_member.added' }),
-      ]),
-      context,
-    );
-    const appended = (outboxRepository.append as jest.Mock).mock.calls[0][0];
-    expect(appended).toEqual(
-      expect.arrayContaining([
+      expect(result).toBe(contract);
+      expect(contract.status).toBe('active');
+      expect(contract.signedContractMediaIds).toEqual([mediaId]);
+      expect(room.status).toBe('occupied');
+      expect(contract.tenantId).toBe(
+        mode === 'phone'
+          ? projectedId
+          : mode === 'unmatched'
+            ? null
+            : contract.tenantId,
+      );
+      expect(projection.lockPhone.mock.invocationCallOrder[0]).toBeLessThan(
+        (contractRepository.findByIdForUpdate as jest.Mock).mock
+          .invocationCallOrder[0],
+      );
+      if (mode === 'explicit')
+        expect(projection.findTenantIdByPhone).not.toHaveBeenCalled();
+      expect(memberRepository.save).toHaveBeenCalledWith(
         expect.objectContaining({
-          eventType: 'contract.activated',
-          payload: expect.objectContaining({
-            contractId: contract.id,
-            buildingId: room.buildingId,
-            roomId: contract.roomId,
-            landlordId,
-            tenantUserIds: [contract.tenantId],
-          }),
+          contractId: contract.id,
+          tenantId: contract.tenantId,
         }),
-      ]),
-    );
-  });
+        context,
+      );
+      expect(outboxRepository.append).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({ eventType: 'contract.activated' }),
+          expect.objectContaining({ eventType: 'room.status_changed' }),
+          expect.objectContaining({ eventType: 'contract_member.added' }),
+        ]),
+        context,
+      );
+      const appended = (outboxRepository.append as jest.Mock).mock.calls[0][0];
+      expect(appended).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            eventType: 'contract.activated',
+            payload: expect.objectContaining({
+              contractId: contract.id,
+              buildingId: room.buildingId,
+              roomId: contract.roomId,
+              landlordId,
+              tenantUserIds: contract.tenantId ? [contract.tenantId] : [],
+            }),
+          }),
+        ]),
+      );
+    },
+  );
 
   it('rejects media outside the contract ownership boundary before opening a transaction', async () => {
     const landlordId = generateUuid();
@@ -176,6 +212,7 @@ describe('ContractActivateCommandHandler', () => {
       unitOfWork,
       {} as OutboxRepository,
       mediaLookup,
+      createLinkDependencies().projection,
     );
 
     await expect(

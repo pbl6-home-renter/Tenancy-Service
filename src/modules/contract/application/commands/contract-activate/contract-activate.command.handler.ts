@@ -20,6 +20,8 @@ import { ActiveContractExistsException } from '../../../domain/exceptions/active
 import { ContractRepository } from '../../../domain/repositories/contract.repository';
 import { MediaLookupPort } from '../../ports/media-lookup.port';
 import { ContractActivateCommand } from './contract-activate.command';
+import { TenantUserProjectionPort } from '../../ports/tenant-user-projection.port';
+import { TenantPhone } from '../../../domain/value-objects/tenant-phone.vo';
 
 @CommandHandler(ContractActivateCommand)
 export class ContractActivateCommandHandler implements ICommandHandler<
@@ -39,6 +41,8 @@ export class ContractActivateCommandHandler implements ICommandHandler<
     private readonly outboxRepository: OutboxRepository,
     @Inject(CONTRACT_DI_TOKEN.MEDIA_LOOKUP)
     private readonly mediaLookup: MediaLookupPort,
+    @Inject(CONTRACT_DI_TOKEN.TENANT_USER_PROJECTION)
+    private readonly tenantUsers: TenantUserProjectionPort,
   ) {}
 
   async execute(command: ContractActivateCommand): Promise<ContractEntity> {
@@ -64,6 +68,19 @@ export class ContractActivateCommandHandler implements ICommandHandler<
     }
 
     return this.unitOfWork.run(async (context) => {
+      const snapshot = await this.contractRepository.findById(
+        command.contractId,
+        context,
+      );
+      if (!snapshot) throw new ContractNotFoundException(command.contractId);
+      if (snapshot.landlordId !== command.landlordId)
+        throw new ContractForbiddenException();
+      // Contract phone is immutable. Lock it before the contract, as the lifecycle consumer does.
+      const phone =
+        snapshot.tenantPhone === null
+          ? null
+          : TenantPhone.create(snapshot.tenantPhone);
+      if (phone !== null) await this.tenantUsers.lockPhone(phone, context);
       const contract = await this.contractRepository.findByIdForUpdate(
         command.contractId,
         context,
@@ -71,6 +88,13 @@ export class ContractActivateCommandHandler implements ICommandHandler<
       if (!contract) throw new ContractNotFoundException(command.contractId);
       if (contract.landlordId !== command.landlordId) {
         throw new ContractForbiddenException();
+      }
+      if (contract.tenantId === null && phone !== null) {
+        const tenantId = await this.tenantUsers.findTenantIdByPhone(
+          phone,
+          context,
+        );
+        if (tenantId !== null) contract.linkTenant(tenantId, phone);
       }
 
       const room = await this.roomRepository.findByIdForUpdate(
