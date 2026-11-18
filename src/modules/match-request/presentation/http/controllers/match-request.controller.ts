@@ -32,13 +32,18 @@ import { ResponseCode } from 'shared/presentation/decorators/response-code.decor
 import { PaginatedResponseDto } from 'shared/presentation/pagination/paginated.response.dto';
 import { MatchRequestCreateCommand } from '../../../application/commands/match-request-create/match-request-create.command';
 import { MatchRequestTransitionCommand } from '../../../application/commands/match-request-transition/match-request-transition.command';
+import { MatchRequestListItemResult } from '../../../application/match-request-list.result';
 import { MatchRequestListQuery } from '../../../application/queries/match-request-list/match-request-list.query';
 import { MatchRequestEntity } from '../../../domain/entities/match-request.entity';
 import { MatchRequestStatus } from '../../../domain/enums/match-request-status.enum';
 import { MATCH_REQUEST_RESPONSE_CODE as Code } from '../constants/match-request-response-code.constant';
 import { MatchRequestCreateRequestDto } from '../requests/match-request-create.request.dto';
 import { MatchRequestListRequestDto } from '../requests/match-request-list.request.dto';
-import { MatchRequestResponseDto } from '../responses/match-request.response.dto';
+import {
+  MatchRequestListResponseDto,
+  MatchRequestParticipantResponseDto,
+  MatchRequestResponseDto,
+} from '../responses/match-request.response.dto';
 
 function MatchRequestActionErrors() {
   return applyDecorators(
@@ -50,7 +55,11 @@ function MatchRequestActionErrors() {
 
 @ApiTags('Matching')
 @ApiBearerAuth()
-@ApiExtraModels(MatchRequestResponseDto)
+@ApiExtraModels(
+  MatchRequestResponseDto,
+  MatchRequestListResponseDto,
+  MatchRequestParticipantResponseDto,
+)
 @ApiResponse({ status: 401, description: 'UNAUTHORIZED' })
 @ApiResponse({ status: 403, description: 'FORBIDDEN' })
 @ApiResponse({ status: 503, description: 'Identity service unavailable' })
@@ -78,13 +87,17 @@ export class MatchRequestController {
         code: { type: 'string', enum: [Code.LIST_FETCHED] },
         data: {
           type: 'array',
-          items: { $ref: getSchemaPath(MatchRequestResponseDto) },
+          items: { $ref: getSchemaPath(MatchRequestListResponseDto) },
         },
         pagination: { type: 'object' },
       },
     },
   })
   @ApiResponse({ status: 400, description: 'Invalid query' })
+  @ApiResponse({
+    status: 404,
+    description: 'MATCH_REQUEST_PARTICIPANT_UNAVAILABLE',
+  })
   @ApiResponse({ status: 422, description: 'VALIDATION_FAILED' })
   async list(
     @CurrentUser() user: AuthenticatedUser,
@@ -92,7 +105,7 @@ export class MatchRequestController {
   ) {
     const result = await this.queries.execute<
       MatchRequestListQuery,
-      PaginatedResult<MatchRequestEntity>
+      PaginatedResult<MatchRequestListItemResult>
     >(
       new MatchRequestListQuery(user.id, {
         pageNo: request.pageNo,
@@ -102,7 +115,7 @@ export class MatchRequestController {
       }),
     );
     return PaginatedResponseDto.create({
-      data: result.data.map(MatchRequestResponseDto.fromDomain),
+      data: result.data.map(MatchRequestListResponseDto.fromListItem),
       pagination: result.pagination,
     });
   }

@@ -137,6 +137,78 @@ describe('match request service', () => {
     expect(outbox.append).not.toHaveBeenCalled();
   });
 
+  it('includes requester and target summaries in the paginated list', async () => {
+    const request = MatchRequestEntity.create(
+      requesterId,
+      targetId,
+      generateUuid(),
+    );
+    const pagination = {
+      type: 'offset' as const,
+      pageNo: 1,
+      pageSize: 20,
+      totalItems: 1,
+      totalPages: 1,
+      hasNextPage: false,
+      hasPreviousPage: false,
+    };
+    pages.findPage.mockResolvedValueOnce({ data: [request], pagination });
+
+    const result = await service.list(requesterId, {
+      pageNo: 1,
+      pageSize: 20,
+    });
+
+    expect(result).toEqual({
+      data: [
+        {
+          request,
+          requester: { id: requesterId, name: 'Tenant', avatarUrl: null },
+          target: { id: targetId, name: 'Tenant', avatarUrl: null },
+        },
+      ],
+      pagination,
+    });
+    expect(tenants.findActive).toHaveBeenNthCalledWith(1, [requesterId]);
+    expect(tenants.findActive).toHaveBeenNthCalledWith(2, [targetId]);
+  });
+
+  it('fails explicitly when a match request participant is no longer active', async () => {
+    const request = MatchRequestEntity.create(
+      requesterId,
+      targetId,
+      generateUuid(),
+    );
+    pages.findPage.mockResolvedValueOnce({
+      data: [request],
+      pagination: {
+        type: 'offset',
+        pageNo: 1,
+        pageSize: 20,
+        totalItems: 1,
+        totalPages: 1,
+        hasNextPage: false,
+        hasPreviousPage: false,
+      },
+    });
+    tenants.findActive
+      .mockResolvedValueOnce(
+        new Map([
+          [
+            requesterId.toLowerCase(),
+            { id: requesterId, name: 'Tenant', avatarUrl: null },
+          ],
+        ]),
+      )
+      .mockResolvedValueOnce(new Map());
+
+    await expect(
+      service.list(requesterId, { pageNo: 1, pageSize: 20 }),
+    ).rejects.toMatchObject({
+      code: 'MATCH_REQUEST_PARTICIPANT_UNAVAILABLE',
+    });
+  });
+
   it('rejects reuse of an idempotency key for a different target', async () => {
     const key = generateUuid();
     requests.findByRequestKey.mockResolvedValue(
