@@ -148,7 +148,12 @@ export class ContractMemberController {
     operationId: 'postContractMembersTenantidLeaveContract',
     summary: 'Record member leave date',
   })
-  @ApiParam({ name: 'tenantId', type: String, format: 'uuid' })
+  @ApiParam({
+    name: 'tenantId',
+    type: String,
+    format: 'uuid',
+    description: 'Tenant user ID or contract member ID',
+  })
   @ApiSuccessResponse({
     code: Code.CONTRACT_MEMBER_LEFT,
     dataDto: ContractMemberLeaveResponseDto,
