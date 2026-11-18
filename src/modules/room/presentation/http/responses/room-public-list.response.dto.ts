@@ -9,11 +9,23 @@ export class RoomPublicListResponseDto {
   @ApiProperty({ type: [String], format: 'uuid' })
   photoMediaIds: string[];
 
-  @ApiProperty({ type: [String], description: 'Identity media URLs for display.' })
+  @ApiProperty({
+    type: [String],
+    description: 'Identity media URLs for display.',
+  })
   photoUrls: string[];
 
   @ApiProperty({ format: 'uuid' })
   buildingId: string;
+
+  @ApiProperty()
+  buildingName: string;
+
+  @ApiProperty()
+  ward: string;
+
+  @ApiProperty({ type: String, nullable: true, deprecated: true })
+  thumbnailUrl: string | null;
 
   @ApiProperty()
   name: string;
@@ -44,13 +56,16 @@ export class RoomPublicListResponseDto {
     response.photoMediaIds = room.photoMediaIds;
     response.photoUrls = room.photoUrls;
     response.buildingId = room.buildingId;
+    response.buildingName = room.buildingName;
+    response.ward = room.ward;
+    response.thumbnailUrl = room.photoUrls[0] ?? null;
     response.name = room.name;
     response.area = room.area;
     response.rentPrice = room.rentPrice;
     response.genderPolicy = room.genderPolicy;
     response.address = room.address;
     response.province = room.province;
-    response.isFavorited = false;
+    response.isFavorited = room.isFavorited;
     return response;
   }
 }

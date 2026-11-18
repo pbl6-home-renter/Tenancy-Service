@@ -4,6 +4,17 @@ import { GenderPolicy } from '../../../domain/enums/gender-policy.enum';
 import { RoomStatus } from '../../../domain/enums/room-status.enum';
 import { RoomAmenities } from '../../../domain/value-objects/room-amenities.vo';
 
+export class RoomLandlordResponseDto {
+  @ApiProperty({ format: 'uuid' })
+  id: string;
+
+  @ApiProperty()
+  name: string;
+
+  @ApiProperty()
+  phone: string;
+}
+
 export class RoomDetailResponseDto {
   @ApiProperty({ format: 'uuid' })
   id: string;
@@ -16,6 +27,15 @@ export class RoomDetailResponseDto {
 
   @ApiProperty()
   buildingName: string;
+
+  @ApiProperty()
+  address: string;
+
+  @ApiProperty()
+  ward: string;
+
+  @ApiProperty()
+  province: string;
 
   @ApiProperty()
   name: string;
@@ -50,8 +70,8 @@ export class RoomDetailResponseDto {
   @ApiProperty({ type: [String] })
   photoUrls: string[] = [];
 
-  @ApiProperty({ nullable: true })
-  landlord: { id: string; name: string; phone: string } | null = null;
+  @ApiProperty({ type: RoomLandlordResponseDto })
+  landlord: RoomLandlordResponseDto;
 
   @ApiPropertyOptional({ type: Object, nullable: true })
   currentContract: {
@@ -85,11 +105,16 @@ export class RoomDetailResponseDto {
   } | null = null;
 
   static fromReadModel(room: RoomDetailResult): RoomDetailResponseDto {
+    if (!room.landlord)
+      throw new Error('Room detail requires resolved landlord contact');
     const response = new RoomDetailResponseDto();
     response.id = room.id;
     response.photoMediaIds = room.photoMediaIds;
     response.buildingId = room.buildingId;
     response.buildingName = room.buildingName;
+    response.address = room.address;
+    response.ward = room.ward;
+    response.province = room.province;
     response.name = room.name;
     response.description = room.description;
     response.area = room.area;
@@ -101,8 +126,7 @@ export class RoomDetailResponseDto {
     response.genderPolicy = room.genderPolicy;
     response.amenities = room.amenities;
     response.photoUrls = room.photoUrls;
-    // TODO(identity): Resolve landlord name and phone when Identity exposes an internal lookup.
-    // TODO(media): Resolve uploaded room photo IDs to public URLs.
+    response.landlord = room.landlord;
     // TODO(contract): Populate the active contract and current contract members.
     // TODO(billing): Populate the latest meter readings and effective rate policy.
     return response;

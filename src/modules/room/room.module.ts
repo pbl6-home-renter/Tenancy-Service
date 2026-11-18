@@ -20,6 +20,7 @@ import { RoomGetDetailQueryHandler } from './application/queries/room-get-detail
 import { InternalHttpModule } from 'shared/infrastructure/http/internal-http.module';
 import { MEDIA_LOOKUP_PORT } from 'modules/media/application/ports/media-lookup.port';
 import { IdentityMediaLookupService } from 'modules/media/infrastructure/services/identity-media-lookup.service';
+import { IdentityLandlordContactAdapter } from './infrastructure/users/identity-landlord-contact.adapter';
 
 const commandHandlers = [
   RoomCreateCommandHandler,
@@ -56,6 +57,10 @@ const queryHandlers = [
       useClass: TypeOrmRoomActiveContractChecker,
     },
     { provide: MEDIA_LOOKUP_PORT, useClass: IdentityMediaLookupService },
+    {
+      provide: ROOM_DI_TOKEN.LANDLORD_CONTACT,
+      useClass: IdentityLandlordContactAdapter,
+    },
     ...commandHandlers,
     ...queryHandlers,
   ],
