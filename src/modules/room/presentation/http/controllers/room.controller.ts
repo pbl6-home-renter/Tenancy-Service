@@ -72,11 +72,15 @@ export class RoomController {
   @ApiResponse({ status: HttpStatus.OK })
   async searchPublic(
     @Query() request: PublicRoomsQueryRequest,
+    @CurrentUser() user: AuthenticatedUser | undefined,
+    @Res({ passthrough: true }) response: Response,
   ): Promise<PaginatedResponseDto<RoomPublicListResponseDto>> {
+    response.vary('Authorization');
+    if (user) response.setHeader('Cache-Control', 'private, no-store');
     const result = await this.queryBus.execute<
       RoomPublicSearchQuery,
       PaginatedResult<RoomPublicSearchResult>
-    >(PublicRoomsQueryRequest.toQuery(request));
+    >(new RoomPublicSearchQuery(request, user?.id));
     return PaginatedResponseDto.create({
       data: result.data.map(RoomPublicListResponseDto.fromReadModel),
       pagination: result.pagination,
