@@ -6,6 +6,7 @@ export interface RoomPublicSearchResult {
   photoMediaIds: Uuid[];
   photoUrls: string[];
   buildingId: Uuid;
+  buildingName: string;
   name: string;
   area: string | null;
   rentPrice: number;
@@ -13,4 +14,5 @@ export interface RoomPublicSearchResult {
   address: string;
   province: string;
   ward: string;
+  isFavorited: boolean;
 }

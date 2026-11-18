@@ -24,13 +24,15 @@ export interface RoomReadRepository {
   findDetailById(id: Uuid): Promise<RoomDetailResult | null>;
 }
 
-type PublicRoomRaw = Omit<RoomPublicSearchResult, 'area' | 'rentPrice' | 'photoUrls'> & {
+type PublicRoomRaw = Omit<
+  RoomPublicSearchResult,
+  'area' | 'rentPrice' | 'photoUrls'
+> & {
   area: string | number | null;
   rentPrice: string | number;
 };
 
 interface RoomDetailRaw extends PublicRoomRaw {
-  buildingName: string | null;
   buildingStatus: BuildingStatus | null;
   buildingIsDeleted: boolean | null;
   landlordId: Uuid;
@@ -62,6 +64,7 @@ export class TypeOrmRoomReadRepository implements RoomReadRepository {
       .select('room.id', 'id')
       .addSelect('room.photoMediaIds', 'photoMediaIds')
       .addSelect('room.buildingId', 'buildingId')
+      .addSelect('building.name', 'buildingName')
       .addSelect('room.name', 'name')
       .addSelect('room.area', 'area')
       .addSelect('room.rentPrice', 'rentPrice')
@@ -108,6 +111,7 @@ export class TypeOrmRoomReadRepository implements RoomReadRepository {
       defaultOrder: 'asc',
       alias: 'room',
     });
+    query.addOrderBy('room.id', 'ASC');
 
     const pageNo = options.pageNo > 0 ? options.pageNo : 1;
     const pageSize = options.pageSize > 0 ? options.pageSize : 20;
@@ -131,6 +135,7 @@ export class TypeOrmRoomReadRepository implements RoomReadRepository {
       data: rows.map((row) => ({
         ...row,
         photoUrls: [],
+        isFavorited: false,
         area: row.area === null ? null : String(row.area),
         rentPrice: Number(row.rentPrice),
       })),
@@ -168,6 +173,9 @@ export class TypeOrmRoomReadRepository implements RoomReadRepository {
       .addSelect('room.photoMediaIds', 'photoMediaIds')
       .addSelect('room.buildingId', 'buildingId')
       .addSelect('building.name', 'buildingName')
+      .addSelect('building.address', 'address')
+      .addSelect('building.ward', 'ward')
+      .addSelect('building.province', 'province')
       .addSelect('building.status', 'buildingStatus')
       .addSelect('building.isDeleted', 'buildingIsDeleted')
       .addSelect('room.landlordId', 'landlordId')
@@ -190,6 +198,8 @@ export class TypeOrmRoomReadRepository implements RoomReadRepository {
     return {
       ...row,
       photoUrls: [],
+      isFavorited: false,
+      landlord: null,
       buildingName: row.buildingName,
       area: row.area === null ? null : String(row.area),
       rentPrice: Number(row.rentPrice),
