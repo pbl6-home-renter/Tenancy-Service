@@ -5,6 +5,12 @@
     "noEmit": true,
     "types": ["node", "jest"]
   },
-  "include": ["../src/**/*.ts", "./unit/**/*.ts", "./setup.ts"],
+  "include": [
+    "../src/**/*.ts",
+    "./unit/**/*.ts",
+    "./postgres/**/*.ts",
+    "./support/**/*.ts",
+    "./setup.ts"
+  ],
   "exclude": ["../node_modules", "../dist"]
 }
