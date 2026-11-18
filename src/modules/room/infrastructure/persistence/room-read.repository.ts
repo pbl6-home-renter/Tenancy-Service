@@ -15,10 +15,13 @@ import type {
   RoomDetailResult,
 } from '../../application/queries/room-get-detail/room-get-detail.result';
 import { RoomTypeormEntity } from './room.typeorm-entity';
+import { FavoriteRoomTypeormEntity } from './favorite-room.typeorm-entity';
 
 export interface RoomReadRepository {
   searchPublic(
     query: OffsetPageQuery<PublicRoomFilter>,
+    viewerId?: Uuid,
+    favoritesOnly?: boolean,
   ): Promise<PaginatedResult<RoomPublicSearchResult>>;
   findDetailAccessById(id: Uuid): Promise<RoomDetailAccessResult | null>;
   findDetailById(id: Uuid): Promise<RoomDetailResult | null>;
@@ -53,6 +56,8 @@ export class TypeOrmRoomReadRepository implements RoomReadRepository {
 
   async searchPublic(
     options: OffsetPageQuery<PublicRoomFilter>,
+    viewerId?: Uuid,
+    favoritesOnly = false,
   ): Promise<PaginatedResult<RoomPublicSearchResult>> {
     const query = this.roomRepository
       .createQueryBuilder('room')
@@ -78,6 +83,21 @@ export class TypeOrmRoomReadRepository implements RoomReadRepository {
       .andWhere('building.status = :buildingStatus', {
         buildingStatus: BuildingStatus.APPROVED,
       });
+
+    if (viewerId) {
+      query
+        .leftJoin(
+          FavoriteRoomTypeormEntity,
+          'favorite',
+          'favorite.roomId = room.id AND favorite.tenantId = :viewerId',
+          { viewerId },
+        )
+        .addSelect('favorite.roomId IS NOT NULL', 'isFavorited');
+      if (favoritesOnly) query.andWhere('favorite.roomId IS NOT NULL');
+    } else {
+      query.addSelect('false', 'isFavorited');
+      if (favoritesOnly) query.andWhere('1 = 0');
+    }
 
     if (options.filter?.province !== undefined) {
       query.andWhere('building.province = :province', {
@@ -135,7 +155,7 @@ export class TypeOrmRoomReadRepository implements RoomReadRepository {
       data: rows.map((row) => ({
         ...row,
         photoUrls: [],
-        isFavorited: false,
+        isFavorited: row.isFavorited,
         area: row.area === null ? null : String(row.area),
         rentPrice: Number(row.rentPrice),
       })),

@@ -21,12 +21,21 @@ import { InternalHttpModule } from 'shared/infrastructure/http/internal-http.mod
 import { MEDIA_LOOKUP_PORT } from 'modules/media/application/ports/media-lookup.port';
 import { IdentityMediaLookupService } from 'modules/media/infrastructure/services/identity-media-lookup.service';
 import { IdentityLandlordContactAdapter } from './infrastructure/users/identity-landlord-contact.adapter';
+import { FavoriteRoomTypeormEntity } from './infrastructure/persistence/favorite-room.typeorm-entity';
+import { TypeOrmFavoriteRoomRepository } from './infrastructure/persistence/favorite-room.repository';
+import { FavoriteRoomController } from './presentation/http/controllers/favorite-room.controller';
+import {
+  FavoriteRoomAddCommandHandler,
+  FavoriteRoomRemoveCommandHandler,
+} from './application/commands/favorite-room/favorite-room.command.handler';
 
 const commandHandlers = [
   RoomCreateCommandHandler,
   RoomUpdateCommandHandler,
   RoomDeleteCommandHandler,
   RoomMarkReadyCommandHandler,
+  FavoriteRoomAddCommandHandler,
+  FavoriteRoomRemoveCommandHandler,
 ];
 const queryHandlers = [
   RoomGetMyRoomsQueryHandler,
@@ -37,12 +46,16 @@ const queryHandlers = [
 @Module({
   imports: [
     CqrsModule,
-    TypeOrmModule.forFeature([RoomTypeormEntity, ContractTypeormEntity]),
+    TypeOrmModule.forFeature([
+      RoomTypeormEntity,
+      ContractTypeormEntity,
+      FavoriteRoomTypeormEntity,
+    ]),
     BuildingModule,
     OutboxModule,
     InternalHttpModule,
   ],
-  controllers: [RoomController],
+  controllers: [RoomController, FavoriteRoomController],
   providers: [
     {
       provide: ROOM_DI_TOKEN.REPOSITORY,
@@ -60,6 +73,10 @@ const queryHandlers = [
     {
       provide: ROOM_DI_TOKEN.LANDLORD_CONTACT,
       useClass: IdentityLandlordContactAdapter,
+    },
+    {
+      provide: ROOM_DI_TOKEN.FAVORITES,
+      useClass: TypeOrmFavoriteRoomRepository,
     },
     ...commandHandlers,
     ...queryHandlers,

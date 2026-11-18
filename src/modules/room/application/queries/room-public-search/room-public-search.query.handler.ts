@@ -26,7 +26,11 @@ export class RoomPublicSearchQueryHandler implements IQueryHandler<
   async execute(
     query: RoomPublicSearchQuery,
   ): Promise<PaginatedResult<RoomPublicSearchResult>> {
-    const result = await this.roomReadRepository.searchPublic(query.options);
+    const result = await this.roomReadRepository.searchPublic(
+      query.options,
+      query.viewerId,
+      query.favoritesOnly,
+    );
     const ids = [...new Set(result.data.flatMap((room) => room.photoMediaIds))];
     if (ids.length === 0) return result;
     const media = await this.mediaLookup.findMediaByIds(ids);
