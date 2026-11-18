@@ -43,12 +43,20 @@ export class ContractMemberLeaveCommandHandler implements ICommandHandler<
         throw new ContractForbiddenException();
       if (contract.status !== ContractStatus.ACTIVE)
         throw new ContractNotActiveException();
-      const contractMember =
-        await this.members.findByTenantAndContractForUpdate(
+      let contractMember = await this.members.findByTenantAndContractForUpdate(
+        command.tenantId,
+        contract.id,
+        context,
+      );
+      if (!contractMember) {
+        const memberById = await this.members.findByIdForUpdate(
           command.tenantId,
-          contract.id,
           context,
         );
+        if (memberById?.contractId === contract.id) {
+          contractMember = memberById;
+        }
+      }
       if (!contractMember) throw new ContractMemberNotFoundException();
       const leftOn = new Date(command.leftOn);
       leftOn.setUTCHours(0, 0, 0, 0);
