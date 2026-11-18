@@ -14,6 +14,8 @@ import { ContractEntity } from '../../../domain/entities/contract.entity';
 import { ActiveContractExistsException } from '../../../domain/exceptions/active-contract-exists.exception';
 import { ContractRepository } from '../../../domain/repositories/contract.repository';
 import { ContractCreateCommand } from './contract-create.command';
+import { TenantUserProjectionPort } from '../../ports/tenant-user-projection.port';
+import { TenantPhone } from '../../../domain/value-objects/tenant-phone.vo';
 
 @CommandHandler(ContractCreateCommand)
 export class ContractCreateCommandHandler implements ICommandHandler<
@@ -29,10 +31,20 @@ export class ContractCreateCommandHandler implements ICommandHandler<
     private readonly unitOfWork: IUnitOfWork,
     @Inject(OUTBOX_DI_TOKEN.REPOSITORY)
     private readonly outboxRepository: OutboxRepository,
+    @Inject(CONTRACT_DI_TOKEN.TENANT_USER_PROJECTION)
+    private readonly tenantUsers: TenantUserProjectionPort,
   ) {}
 
   execute(command: ContractCreateCommand): Promise<ContractEntity> {
     return this.unitOfWork.run(async (context) => {
+      const phone =
+        command.tenantPhone === null
+          ? null
+          : TenantPhone.create(command.tenantPhone);
+      // Use the same lock order as Identity reconciliation: phone before room/contract.
+      if (command.tenantId === null && phone !== null) {
+        await this.tenantUsers.lockPhone(phone, context);
+      }
       const room = await this.roomRepository.findByIdForUpdate(
         command.roomId,
         context,
@@ -50,7 +62,11 @@ export class ContractCreateCommandHandler implements ICommandHandler<
       const contract = ContractEntity.create({
         landlordId: command.landlordId,
         roomId: command.roomId,
-        tenantId: command.tenantId,
+        tenantId:
+          command.tenantId ??
+          (phone === null
+            ? null
+            : await this.tenantUsers.findTenantIdByPhone(phone, context)),
         tenantName: command.tenantName,
         tenantPhone: command.tenantPhone,
         depositAmount: command.depositAmount,
