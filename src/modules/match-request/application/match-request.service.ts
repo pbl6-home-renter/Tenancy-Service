@@ -18,9 +18,11 @@ import { MatchRequestEntity } from '../domain/entities/match-request.entity';
 import { MatchRequestStatus } from '../domain/enums/match-request-status.enum';
 import { MatchRequestIdempotencyKeyReusedException } from '../domain/exceptions/match-request-idempotency-key-reused.exception';
 import { MatchRequestNotFoundException } from '../domain/exceptions/match-request-not-found.exception';
+import { MatchRequestParticipantUnavailableException } from '../domain/exceptions/match-request-participant-unavailable.exception';
 import { MatchRequestRepository } from '../domain/repositories/match-request.repository';
 import { MATCH_REQUEST_DI_TOKEN } from '../match-request.di-token';
 import { MatchRequestPageQueryPort } from './ports/match-request-page-query.port';
+import { MatchRequestListItemResult } from './match-request-list.result';
 
 @Injectable()
 export class MatchRequestService {
@@ -65,14 +67,12 @@ export class MatchRequestService {
       );
       if (!profile) throw new RoommateProfileNotFoundException();
       await this.outbox.append(
-        request
-          .pullDomainEvents()
-          .map((event) =>
-            OutboxMessage.fromDomainEvent({
-              ...event,
-              payload: { ...event.payload, actorDisplayName: actor.name },
-            }),
-          ),
+        request.pullDomainEvents().map((event) =>
+          OutboxMessage.fromDomainEvent({
+            ...event,
+            payload: { ...event.payload, actorDisplayName: actor.name },
+          }),
+        ),
         context,
       );
       return saved.request;
@@ -91,14 +91,12 @@ export class MatchRequestService {
       if (request.transition(actorId, next)) {
         await this.requests.save(request, context);
         await this.outbox.append(
-          request
-            .pullDomainEvents()
-            .map((event) =>
-              OutboxMessage.fromDomainEvent({
-                ...event,
-                payload: { ...event.payload, actorDisplayName: actor.name },
-              }),
-            ),
+          request.pullDomainEvents().map((event) =>
+            OutboxMessage.fromDomainEvent({
+              ...event,
+              payload: { ...event.payload, actorDisplayName: actor.name },
+            }),
+          ),
           context,
         );
       }
@@ -114,9 +112,40 @@ export class MatchRequestService {
       direction?: 'incoming' | 'outgoing';
       status?: MatchRequestStatus;
     },
-  ): Promise<PaginatedResult<MatchRequestEntity>> {
-    await this.requireActiveTenant(actorId);
-    return this.pages.findPage(actorId, options);
+  ): Promise<PaginatedResult<MatchRequestListItemResult>> {
+    const actor = await this.requireActiveTenant(actorId);
+    const page = await this.pages.findPage(actorId, options);
+    const participantIds = [
+      ...new Set(
+        page.data.flatMap((request) =>
+          [request.requesterId, request.targetId].filter(
+            (id) => id.toLowerCase() !== actorId.toLowerCase(),
+          ),
+        ),
+      ),
+    ];
+    const participants = new Map<string, TenantSummary>([
+      [actorId.toLowerCase(), actor],
+    ]);
+    if (participantIds.length > 0) {
+      for (const [id, tenant] of await this.tenants.findActive(
+        participantIds,
+      )) {
+        participants.set(id.toLowerCase(), tenant);
+      }
+    }
+
+    return {
+      ...page,
+      data: page.data.map((request) => {
+        const requester = participants.get(request.requesterId.toLowerCase());
+        const target = participants.get(request.targetId.toLowerCase());
+        if (!requester || !target) {
+          throw new MatchRequestParticipantUnavailableException();
+        }
+        return { request, requester, target };
+      }),
+    };
   }
 
   private async requireActiveTenant(id: Uuid): Promise<TenantSummary> {
