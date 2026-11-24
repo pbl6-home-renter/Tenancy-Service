@@ -1,0 +1,1 @@
+export const DASHBOARD_READER = Symbol('DASHBOARD_READER');

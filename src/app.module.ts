@@ -18,6 +18,7 @@ import { MediaOwnershipModule } from 'modules/media/media-ownership.module';
 import { IssueContextModule } from 'modules/issue-context/issue-context.module';
 import { RoommateProfileModule } from 'modules/roommate-profile/roommate-profile.module';
 import { MatchRequestModule } from 'modules/match-request/match-request.module';
+import { DashboardModule } from 'modules/dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { MatchRequestModule } from 'modules/match-request/match-request.module';
     IssueContextModule,
     RoommateProfileModule,
     MatchRequestModule,
+    DashboardModule,
   ],
   providers: [
     {
