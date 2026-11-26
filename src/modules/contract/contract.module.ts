@@ -56,6 +56,7 @@ import { ContractSettlementAdapter } from './infrastructure/persistence/contract
 import { RoomHubListQueryHandler } from './application/queries/room-hub-list/room-hub-list.query.handler';
 import { RoomHubController } from './presentation/http/controllers/room-hub.controller';
 import { TypeOrmRoomHubPageQuery } from './infrastructure/persistence/room-hub-page-query';
+import { ContractNotificationSnapshotService } from './application/services/contract-notification-snapshot.service';
 
 const commandHandlers = [
   ContractLockDecisionCommandHandler,
@@ -109,6 +110,7 @@ const queryHandlers = [
     ContractMemberController,
   ],
   providers: [
+    ContractNotificationSnapshotService,
     {
       provide: CONTRACT_DI_TOKEN.TENANT_READ,
       useClass: TypeOrmContractTenantReadQuery,

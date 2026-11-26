@@ -1,3 +1,5 @@
+import { RoomRepository } from 'modules/room/domain/repositories/room.repository';
+import { ContractNotificationSnapshotService } from 'modules/contract/application/services/contract-notification-snapshot.service';
 import { LandlordLockCycleRepository } from 'modules/contract/domain/repositories/landlord-lock-cycle.repository';
 import { ContractStatus } from 'modules/contract/domain/enums/contract-status.enum';
 import { IdentityLifecycleSubscriber } from 'modules/contract/presentation/messaging/identity-lifecycle.subscriber';
@@ -5,7 +7,7 @@ import { IntegrationEvent } from 'shared/application/messaging/integration-event
 import { UserRole } from 'shared/domain/enums/user-role.enum';
 import { UserStatus } from 'shared/domain/enums/user-status.enum';
 import { ValidationException } from 'shared/domain/exceptions/validation.exception';
-import { generateUuid } from 'shared/domain/value-objects/uuid.vo';
+import { generateUuid, Uuid } from 'shared/domain/value-objects/uuid.vo';
 import { InboxRepository } from 'modules/inbox/application/ports/inbox.repository';
 import { OutboxRepository } from 'modules/outbox/domain/repositories/outbox.repository';
 import { ContractRepository } from 'modules/contract/domain/repositories/contract.repository';
@@ -44,6 +46,9 @@ function setup() {
     findLatestForUpdate: jest.fn(async () => null),
     save: jest.fn(async () => undefined),
   };
+  const rooms = {
+    findById: jest.fn(async (id: Uuid) => ({ name: `Room ${id}` })),
+  };
   const handler = new IdentityLifecycleSubscriber(
     deps.projection,
     contracts as unknown as ContractRepository,
@@ -53,6 +58,7 @@ function setup() {
     deps.unitOfWork,
     cycles as unknown as LandlordLockCycleRepository,
     60_000,
+    new ContractNotificationSnapshotService(rooms as unknown as RoomRepository),
   );
   const userId = generateUuid();
   function event(

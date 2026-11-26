@@ -26,6 +26,7 @@ import { ContractLockDecisionCommand } from './contract-lock-decision.command';
 import { LandlordLockEvidencePort } from '../../ports/landlord-lock-evidence.port';
 import { PeerServiceUnavailableException } from 'shared/application/http/peer-service.exception';
 import { PeerService } from 'shared/application/http/peer-service.enum';
+import { ContractNotificationSnapshotService } from '../../services/contract-notification-snapshot.service';
 
 @CommandHandler(ContractLockDecisionCommand)
 export class ContractLockDecisionCommandHandler implements ICommandHandler<
@@ -45,6 +46,7 @@ export class ContractLockDecisionCommandHandler implements ICommandHandler<
     @Inject(UNIT_OF_WORK_DI_TOKEN) private readonly unitOfWork: IUnitOfWork,
     @Inject(CONTRACT_DI_TOKEN.LANDLORD_LOCK_EVIDENCE)
     private readonly evidence: LandlordLockEvidencePort,
+    private readonly notificationSnapshots: ContractNotificationSnapshotService,
   ) {}
 
   execute(
@@ -142,12 +144,16 @@ export class ContractLockDecisionCommandHandler implements ICommandHandler<
         contract.id,
         context,
       );
-      for (const recipient of contract.notificationRecipientIds(
-        members.map((member) => member.tenantId),
-      ))
+      const snapshots = await this.notificationSnapshots.create(
+        [contract],
+        context,
+      );
+      for (const recipient of contract
+        .notificationRecipientIds(members.map((member) => member.tenantId))
+        .filter((recipient) => recipient !== command.landlordId))
         cycle.requestResolutionNotification(
           recipient,
-          [contract.id],
+          snapshots,
           command.action,
         );
       await this.contracts.save(contract, context);

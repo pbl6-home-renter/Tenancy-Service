@@ -6,6 +6,7 @@ import {
 } from '../constants/contract-event.constants';
 import { ContractNotificationCodeConstant } from '../constants/contract-notification-code.constant';
 import type { LandlordLockCycleEntity } from '../entities/landlord-lock-cycle.entity';
+import { ContractNotificationSnapshot } from './contract-notification-snapshot';
 
 export class ContractSuspensionNotificationRequestedEvent implements DomainEvent {
   readonly eventType = CONTRACT_NOTIFICATION_EVENTS.REQUESTED;
@@ -16,7 +17,7 @@ export class ContractSuspensionNotificationRequestedEvent implements DomainEvent
   constructor(
     private readonly cycle: LandlordLockCycleEntity,
     private readonly recipientUserIds: Uuid[],
-    private readonly contractIds: Uuid[],
+    private readonly contracts: ContractNotificationSnapshot[],
   ) {}
 
   get aggregateId(): Uuid {
@@ -32,9 +33,11 @@ export class ContractSuspensionNotificationRequestedEvent implements DomainEvent
         title: ContractNotificationCodeConstant.CONTRACT_SUSPENDED_TITLE,
         body: ContractNotificationCodeConstant.CONTRACT_SUSPENDED_BODY,
         data: {
+          messageKey: 'contract.suspended',
           landlordId: this.cycle.landlordId,
           lockCycleId: this.cycle.id,
-          contractIds: this.contractIds,
+          contractIds: this.contracts.map((contract) => contract.contractId),
+          contracts: this.contracts,
           graceDeadline: this.cycle.graceDeadline.toISOString(),
         },
       },

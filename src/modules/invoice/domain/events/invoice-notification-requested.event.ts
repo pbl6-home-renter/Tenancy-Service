@@ -1,5 +1,6 @@
 import { DomainEvent } from 'shared/domain/base/domain-event';
 import { Uuid } from 'shared/domain/value-objects/uuid.vo';
+import { InvoiceNotificationCodeConstant } from '../constants/invoice-notification-code.constant';
 
 export class InvoiceNotificationRequestedEvent implements DomainEvent {
   readonly eventType = 'notification.requested';
@@ -19,10 +20,15 @@ export class InvoiceNotificationRequestedEvent implements DomainEvent {
       recipientUserIds: [...recipientUserIds],
       notification: {
         type: 'invoice',
-        title: 'Hóa đơn đã được phát hành',
-        body: `Hóa đơn kỳ ${period} đã được phát hành.`,
+        title: InvoiceNotificationCodeConstant.INVOICE_ISSUED_TITLE,
+        body: InvoiceNotificationCodeConstant.INVOICE_ISSUED_BODY,
         deepLink: `/invoices/${aggregateId}`,
-        data: { invoiceId: aggregateId, contractId, period },
+        data: {
+          messageKey: 'invoice.issued',
+          invoiceId: aggregateId,
+          contractId,
+          period,
+        },
       },
     };
   }

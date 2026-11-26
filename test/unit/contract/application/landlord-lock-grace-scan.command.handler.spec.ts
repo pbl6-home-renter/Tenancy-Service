@@ -1,11 +1,14 @@
+import { RoomRepository } from 'modules/room/domain/repositories/room.repository';
+import { ContractNotificationSnapshotService } from 'modules/contract/application/services/contract-notification-snapshot.service';
+import { ContractNotificationCodeConstant } from 'modules/contract/domain/constants/contract-notification-code.constant';
 import { LandlordLockGraceScanCommandHandler } from 'modules/contract/application/commands/landlord-lock-grace-scan/landlord-lock-grace-scan.command.handler';
 import { LandlordLockGraceScanCommand } from 'modules/contract/application/commands/landlord-lock-grace-scan/landlord-lock-grace-scan.command';
 import { LandlordLockCycleEntity } from 'modules/contract/domain/entities/landlord-lock-cycle.entity';
 import { LandlordLockCycleRepository } from 'modules/contract/domain/repositories/landlord-lock-cycle.repository';
-import { generateUuid } from 'shared/domain/value-objects/uuid.vo';
+import { generateUuid, Uuid } from 'shared/domain/value-objects/uuid.vo';
 import { OutboxRepository } from 'modules/outbox/domain/repositories/outbox.repository';
 import { createLinkDependencies } from '../support/contract-link.fixture';
-import { createContract } from '../support/contract-link.fixture';
+import { createContract, createMember } from '../support/contract-link.fixture';
 import { ContractStatus } from 'modules/contract/domain/enums/contract-status.enum';
 import { ContractRepository } from 'modules/contract/domain/repositories/contract.repository';
 import { ContractMemberRepository } from 'modules/contract/domain/repositories/contract-member.repository';
@@ -57,7 +60,20 @@ function setup() {
     findByIdsForUpdate: jest.fn(async () => [contract]),
     save: jest.fn(async () => undefined),
   };
-  const members = { findActiveByContract: jest.fn(async () => []) };
+  const memberId = generateUuid();
+  const members = {
+    findActiveByContract: jest.fn(async (id: Uuid) => [
+      createMember(id, contract.tenantId),
+      createMember(id, memberId),
+      createMember(id, memberId),
+      createMember(id),
+    ]),
+  };
+  const rooms = {
+    findById: jest.fn<Promise<{ name: string } | null>, [Uuid]>(async (id) => ({
+      name: `Room ${id}`,
+    })),
+  };
   const createHandler = () =>
     new LandlordLockGraceScanCommandHandler(
       repository as unknown as LandlordLockCycleRepository,
@@ -67,12 +83,17 @@ function setup() {
       contracts as unknown as ContractRepository,
       members as unknown as ContractMemberRepository,
       outbox as unknown as OutboxRepository,
+      new ContractNotificationSnapshotService(
+        rooms as unknown as RoomRepository,
+      ),
     );
   return {
+    rooms,
     context,
     evidence,
     contract,
     contracts,
+    memberId,
     outbox,
     unitOfWork,
     cycle,
@@ -84,6 +105,79 @@ function setup() {
 }
 
 describe('LandlordLockGraceScanCommandHandler', () => {
+  it('still terminates when the historical room has been deleted', async () => {
+    const s = setup();
+    s.rooms.findById.mockResolvedValue(null);
+    await s.handler.execute(new LandlordLockGraceScanCommand(DEADLINE));
+    expect(s.contract.status).toBe(ContractStatus.TERMINATED);
+    expect(s.outbox.append.mock.calls[0][0][0].payload.notification).toEqual(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          contracts: [
+            {
+              contractId: s.contract.id,
+              contractCode: `HD-${s.contract.id.slice(0, 6)}`,
+              roomName: null,
+            },
+          ],
+        }),
+      }),
+    );
+  });
+
+  it('requests a decision for all pending contracts when reconciling a delayed unlock', async () => {
+    const s = setup();
+    const second = createContract(generateUuid(), s.cycle.landlordId);
+    second.suspend();
+    const foreign = createContract(generateUuid());
+    foreign.suspend();
+    const inactive = createContract(generateUuid(), s.cycle.landlordId);
+    const cycle = LandlordLockCycleEntity.create({
+      id: s.cycle.id,
+      landlordId: s.cycle.landlordId,
+      lockedAt: LOCKED_AT,
+      gracePeriodMs: GRACE_MS,
+      contractIds: [s.contract.id, second.id, foreign.id, inactive.id],
+    });
+    s.repository.findLatestForUpdate.mockResolvedValue(cycle);
+    s.contracts.findByIdsForUpdate.mockResolvedValue([
+      s.contract,
+      second,
+      foreign,
+      inactive,
+    ]);
+    s.evidence.find.mockResolvedValue({
+      lockedAt: LOCKED_AT.toISOString(),
+      unlockedAt: new Date(DEADLINE.getTime() - 1).toISOString(),
+      latestLockedAt: LOCKED_AT.toISOString(),
+      observedAt: DEADLINE.toISOString(),
+      state: 'unlocked',
+    });
+    await s.handler.execute(new LandlordLockGraceScanCommand(DEADLINE));
+    const [messages, context] = s.outbox.append.mock.calls[0];
+    expect(context).toBe(s.context);
+    expect(messages).toHaveLength(1);
+    expect(messages[0].payload.recipientUserIds).toEqual([s.cycle.landlordId]);
+    expect(messages[0].payload.notification).toEqual(
+      expect.objectContaining({
+        title:
+          ContractNotificationCodeConstant.CONTRACT_LOCK_DECISION_REQUIRED_TITLE,
+        body: ContractNotificationCodeConstant.CONTRACT_LOCK_DECISION_REQUIRED_BODY,
+        data: expect.objectContaining({
+          messageKey: 'contract.lock_decision_required',
+          contractIds: [s.contract.id, second.id],
+          contracts: [s.contract, second].map((contract) => ({
+            contractId: contract.id,
+            contractCode: `HD-${contract.id.slice(0, 6)}`,
+            roomName: `Room ${contract.roomId}`,
+          })),
+        }),
+      }),
+    );
+    expect(s.repository.save).toHaveBeenCalledWith(cycle, s.context);
+    expect(s.contracts.save).not.toHaveBeenCalled();
+  });
+
   it('finds an existing deadline after handler recreation and marks it only once', async () => {
     const s = setup();
     const restarted = s.createHandler();
@@ -112,6 +206,41 @@ describe('LandlordLockGraceScanCommandHandler', () => {
     expect(s.cycle.state).toBe('completed');
     expect(s.contract.status).toBe(ContractStatus.TERMINATED);
     expect(s.contract.handoverRequired).toBe(true);
+    expect(s.outbox.append).toHaveBeenCalledTimes(1);
+    const [messages, context] = s.outbox.append.mock.calls[0];
+    expect(context).toBe(s.context);
+    expect(messages).toHaveLength(3);
+    expect(messages.map((message) => message.payload.recipientUserIds)).toEqual(
+      [[s.cycle.landlordId], [s.contract.tenantId], [s.memberId]],
+    );
+    for (const message of messages) {
+      expect(message.payload).toEqual({
+        sourceService: 'tenancy',
+        recipientUserIds: message.payload.recipientUserIds,
+        notification: {
+          type: 'system',
+          title: ContractNotificationCodeConstant.CONTRACT_TERMINATED_TITLE,
+          body: ContractNotificationCodeConstant.CONTRACT_TERMINATED_BODY,
+          data: {
+            messageKey: 'contract.terminated_by_lock',
+            landlordId: s.cycle.landlordId,
+            lockCycleId: s.cycle.id,
+            contractIds: [s.contract.id],
+            contracts: [
+              {
+                contractId: s.contract.id,
+                contractCode: `HD-${s.contract.id.slice(0, 6)}`,
+                roomName: `Room ${s.contract.roomId}`,
+              },
+            ],
+            action: 'terminate',
+            graceDeadline: DEADLINE.toISOString(),
+          },
+        },
+      });
+    }
+    expect(s.contracts.save).toHaveBeenCalledWith(s.contract, s.context);
+    expect(s.rooms.findById).toHaveBeenCalledWith(s.contract.roomId, s.context);
   });
 
   it('ignores a previously selected deadline after a newer lock supersedes it', async () => {
@@ -187,6 +316,36 @@ describe('LandlordLockGraceScanCommandHandler', () => {
     expect(s.contract.status).toBe(ContractStatus.SUSPENDED);
     expect(s.contracts.save).not.toHaveBeenCalled();
     expect(s.outbox.append.mock.calls[0][0]).toHaveLength(1);
+    expect(s.outbox.append.mock.calls[0][1]).toBe(s.context);
+    expect(s.outbox.append.mock.calls[0][0][0].payload).toEqual({
+      sourceService: 'tenancy',
+      recipientUserIds: [s.cycle.landlordId],
+      notification: {
+        type: 'system',
+        title:
+          ContractNotificationCodeConstant.CONTRACT_LOCK_DECISION_REQUIRED_TITLE,
+        body: ContractNotificationCodeConstant.CONTRACT_LOCK_DECISION_REQUIRED_BODY,
+        data: {
+          messageKey: 'contract.lock_decision_required',
+          landlordId: s.cycle.landlordId,
+          lockCycleId: s.cycle.id,
+          contractIds: [s.contract.id],
+          contracts: [
+            {
+              contractId: s.contract.id,
+              contractCode: `HD-${s.contract.id.slice(0, 6)}`,
+              roomName: `Room ${s.contract.roomId}`,
+            },
+          ],
+          action: 'decision_required',
+          graceDeadline: DEADLINE.toISOString(),
+        },
+      },
+    });
+    await s.handler.execute(
+      new LandlordLockGraceScanCommand(new Date(DEADLINE.getTime() + 60_000)),
+    );
+    expect(s.outbox.append).toHaveBeenCalledTimes(1);
   });
 
   it('treats unlock exactly at the deadline as expiry', async () => {
