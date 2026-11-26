@@ -13,6 +13,7 @@ import { ContractStatus } from '../../../domain/enums/contract-status.enum';
 import { OUTBOX_DI_TOKEN } from 'modules/outbox/outbox.di-token';
 import { OutboxRepository } from 'modules/outbox/domain/repositories/outbox.repository';
 import { OutboxMessage } from 'modules/outbox/domain/entities/outbox-message.entity';
+import { ContractNotificationSnapshotService } from '../../services/contract-notification-snapshot.service';
 
 const GRACE_SCAN_BATCH_SIZE = 100;
 
@@ -39,6 +40,7 @@ export class LandlordLockGraceScanCommandHandler implements ICommandHandler<
     private readonly members: ContractMemberRepository,
     @Inject(OUTBOX_DI_TOKEN.REPOSITORY)
     private readonly outbox: OutboxRepository,
+    private readonly notificationSnapshots: ContractNotificationSnapshotService,
   ) {}
 
   async execute(command: LandlordLockGraceScanCommand): Promise<number> {
@@ -94,7 +96,7 @@ export class LandlordLockGraceScanCommandHandler implements ICommandHandler<
         if (unlockedAt && unlockedAt < cycle.graceDeadline) {
           cycle.beginDecision(
             unlockedAt,
-            contracts.map((contract) => contract.id),
+            await this.notificationSnapshots.create(contracts, context),
           );
         } else {
           if (Date.parse(evidence.observedAt) < cycle.graceDeadline.getTime())
@@ -111,12 +113,16 @@ export class LandlordLockGraceScanCommandHandler implements ICommandHandler<
               contract.id,
               context,
             );
+            const snapshots = await this.notificationSnapshots.create(
+              [contract],
+              context,
+            );
             for (const recipient of contract.notificationRecipientIds(
               members.map((member) => member.tenantId),
             ))
               cycle.requestResolutionNotification(
                 recipient,
-                [contract.id],
+                snapshots,
                 'terminate',
               );
             await this.contracts.save(contract, context);

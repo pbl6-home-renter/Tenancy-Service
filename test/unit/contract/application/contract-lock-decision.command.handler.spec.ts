@@ -1,3 +1,5 @@
+import { ContractNotificationSnapshotService } from 'modules/contract/application/services/contract-notification-snapshot.service';
+import { ContractNotificationCodeConstant } from 'modules/contract/domain/constants/contract-notification-code.constant';
 import { ContractLockDecisionCommand } from 'modules/contract/application/commands/contract-lock-decision/contract-lock-decision.command';
 import { ContractLockDecisionCommandHandler } from 'modules/contract/application/commands/contract-lock-decision/contract-lock-decision.command.handler';
 import { LandlordLockCycleEntity } from 'modules/contract/domain/entities/landlord-lock-cycle.entity';
@@ -8,10 +10,11 @@ import { ContractStatus } from 'modules/contract/domain/enums/contract-status.en
 import { RoomStatus } from 'modules/room/domain/enums/room-status.enum';
 import { RoomRepository } from 'modules/room/domain/repositories/room.repository';
 import { ContractLockDecisionResponseDto } from 'modules/contract/presentation/http/responses/contract-lock-decision.response.dto';
-import { generateUuid } from 'shared/domain/value-objects/uuid.vo';
+import { generateUuid, Uuid } from 'shared/domain/value-objects/uuid.vo';
 import { OutboxRepository } from 'modules/outbox/domain/repositories/outbox.repository';
 import {
   createContract,
+  createMember,
   createLinkDependencies,
 } from '../support/contract-link.fixture';
 
@@ -33,7 +36,14 @@ function setup() {
     gracePeriodMs: 60_000,
     contractIds: [first.id, second.id],
   });
-  cycle.beginDecision(unlockedAt, cycle.contractIds);
+  cycle.beginDecision(
+    unlockedAt,
+    [first, second].map((contract) => ({
+      contractId: contract.id,
+      contractCode: `HD-${contract.id.slice(0, 6)}`,
+      roomName: `Room ${contract.roomId}`,
+    })),
+  );
   cycle.pullDomainEvents();
   const cycles = {
     lockLandlord: jest.fn(async () => undefined),
@@ -46,8 +56,16 @@ function setup() {
     existsBlockingByRoom: jest.fn(async () => false),
     save: jest.fn(async () => undefined),
   };
-  const members = { findActiveByContract: jest.fn(async () => []) };
+  const members = {
+    findActiveByContract: jest.fn(async (id: Uuid) => [
+      createMember(id, id === first.id ? first.tenantId : second.tenantId),
+      createMember(id, id === first.id ? first.tenantId : second.tenantId),
+      createMember(id, landlordId),
+      createMember(id),
+    ]),
+  };
   const rooms = {
+    findById: jest.fn(async (id: Uuid) => ({ name: `Room ${id}` })),
     findByIdForUpdate: jest.fn(async () => ({
       landlordId,
       status: RoomStatus.OCCUPIED,
@@ -70,6 +88,7 @@ function setup() {
     deps.outbox as unknown as OutboxRepository,
     deps.unitOfWork,
     evidence,
+    new ContractNotificationSnapshotService(rooms as unknown as RoomRepository),
   );
   return {
     ...deps,
@@ -81,11 +100,83 @@ function setup() {
     rooms,
     evidence,
     handler,
+    members,
     landlordId,
   };
 }
 
 describe('ContractLockDecisionCommandHandler', () => {
+  it.each([
+    [
+      'restore',
+      'contract.restored',
+      ContractNotificationCodeConstant.CONTRACT_RESTORED_TITLE,
+      ContractNotificationCodeConstant.CONTRACT_RESTORED_BODY,
+    ],
+    [
+      'terminate',
+      'contract.terminated_by_lock',
+      ContractNotificationCodeConstant.CONTRACT_TERMINATED_TITLE,
+      ContractNotificationCodeConstant.CONTRACT_TERMINATED_BODY,
+    ],
+  ] as const)(
+    'emits %s only to distinct tenants and members, excluding the acting landlord',
+    async (action, messageKey, title, body) => {
+      const s = setup();
+      const memberId = generateUuid();
+      s.members.findActiveByContract.mockResolvedValue([
+        createMember(s.first.id, s.first.tenantId),
+        createMember(s.first.id, memberId),
+        createMember(s.first.id, memberId),
+        createMember(s.first.id, s.landlordId),
+        createMember(s.first.id),
+      ]);
+      await s.handler.execute(
+        new ContractLockDecisionCommand(
+          s.landlordId,
+          s.first.id,
+          s.cycle.id,
+          action,
+        ),
+      );
+      const [messages, context] = s.outbox.append.mock.calls[0];
+      expect(context).toBe(s.context);
+      expect(messages).toHaveLength(2);
+      expect(
+        messages.map((message) => message.payload.recipientUserIds),
+      ).toEqual([[s.first.tenantId], [memberId]]);
+      for (const message of messages) {
+        expect(message.payload).toEqual({
+          sourceService: 'tenancy',
+          recipientUserIds: message.payload.recipientUserIds,
+          notification: {
+            type: 'system',
+            title,
+            body,
+            data: {
+              messageKey,
+              action,
+              landlordId: s.landlordId,
+              lockCycleId: s.cycle.id,
+              contractIds: [s.first.id],
+              contracts: [
+                {
+                  contractId: s.first.id,
+                  contractCode: `HD-${s.first.id.slice(0, 6)}`,
+                  roomName: `Room ${s.first.roomId}`,
+                },
+              ],
+              graceDeadline: s.cycle.graceDeadline.toISOString(),
+            },
+          },
+        });
+      }
+      expect(s.rooms.findById).toHaveBeenCalledWith(s.first.roomId, s.context);
+      expect(s.contracts.save).toHaveBeenCalledWith(s.first, s.context);
+      expect(s.cycles.save).toHaveBeenCalledWith(s.cycle, s.context);
+    },
+  );
+
   it('restores A and terminates B independently, replaying the stored results exactly once', async () => {
     const s = setup();
     const restore = new ContractLockDecisionCommand(
@@ -128,8 +219,8 @@ describe('ContractLockDecisionCommandHandler', () => {
     ).toEqual(terminated);
     expect(s.contracts.save).toHaveBeenCalledTimes(2);
     expect(s.outbox.append).toHaveBeenCalledTimes(2);
-    expect(s.outbox.append.mock.calls[0][0]).toHaveLength(2);
-    expect(s.outbox.append.mock.calls[1][0]).toHaveLength(2);
+    expect(s.outbox.append.mock.calls[0][0]).toHaveLength(1);
+    expect(s.outbox.append.mock.calls[1][0]).toHaveLength(1);
     expect(s.first.pullDomainEvents()).toHaveLength(0);
     expect(s.second.pullDomainEvents()).toHaveLength(0);
   });

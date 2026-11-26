@@ -6,6 +6,7 @@ import {
 } from '../constants/contract-event.constants';
 import { ContractNotificationCodeConstant } from '../constants/contract-notification-code.constant';
 import type { LandlordLockCycleEntity } from '../entities/landlord-lock-cycle.entity';
+import { ContractNotificationSnapshot } from './contract-notification-snapshot';
 
 export class ContractLockResolutionNotificationRequestedEvent implements DomainEvent {
   readonly eventType = CONTRACT_NOTIFICATION_EVENTS.REQUESTED;
@@ -16,7 +17,7 @@ export class ContractLockResolutionNotificationRequestedEvent implements DomainE
   constructor(
     private readonly cycle: LandlordLockCycleEntity,
     private readonly recipientUserId: Uuid,
-    private readonly contractIds: Uuid[],
+    private readonly contracts: ContractNotificationSnapshot[],
     private readonly action: 'decision_required' | 'restore' | 'terminate',
   ) {}
 
@@ -29,17 +30,20 @@ export class ContractLockResolutionNotificationRequestedEvent implements DomainE
       decision_required: [
         ContractNotificationCodeConstant.CONTRACT_LOCK_DECISION_REQUIRED_TITLE,
         ContractNotificationCodeConstant.CONTRACT_LOCK_DECISION_REQUIRED_BODY,
+        'contract.lock_decision_required',
       ],
       restore: [
         ContractNotificationCodeConstant.CONTRACT_RESTORED_TITLE,
         ContractNotificationCodeConstant.CONTRACT_RESTORED_BODY,
+        'contract.restored',
       ],
       terminate: [
         ContractNotificationCodeConstant.CONTRACT_TERMINATED_TITLE,
         ContractNotificationCodeConstant.CONTRACT_TERMINATED_BODY,
+        'contract.terminated_by_lock',
       ],
     };
-    const [title, body] = codes[this.action];
+    const [title, body, messageKey] = codes[this.action];
     return {
       sourceService: 'tenancy',
       recipientUserIds: [this.recipientUserId],
@@ -48,9 +52,11 @@ export class ContractLockResolutionNotificationRequestedEvent implements DomainE
         title,
         body,
         data: {
+          messageKey,
           landlordId: this.cycle.landlordId,
           lockCycleId: this.cycle.id,
-          contractIds: this.contractIds,
+          contractIds: this.contracts.map((contract) => contract.contractId),
+          contracts: this.contracts,
           graceDeadline: this.cycle.graceDeadline.toISOString(),
           action: this.action,
         },

@@ -1,3 +1,6 @@
+import { RoomRepository } from 'modules/room/domain/repositories/room.repository';
+import { ContractNotificationSnapshotService } from 'modules/contract/application/services/contract-notification-snapshot.service';
+import { ContractNotificationCodeConstant } from 'modules/contract/domain/constants/contract-notification-code.constant';
 import { IdentityLifecycleSubscriber } from 'modules/contract/presentation/messaging/identity-lifecycle.subscriber';
 import { IntegrationEvent } from 'shared/application/messaging/integration-event';
 import { InboxRepository } from 'modules/inbox/application/ports/inbox.repository';
@@ -43,6 +46,7 @@ function setup() {
     }),
   };
   const contracts = {
+    findByIdsForUpdate: jest.fn(async () => [first, second]),
     findForLandlordLockForUpdate: jest.fn(async () => [first, second]),
     save: jest.fn(async () => undefined),
   };
@@ -52,6 +56,9 @@ function setup() {
     ),
   };
   const inbox = { recordIfNew: jest.fn(async () => true) };
+  const rooms = {
+    findById: jest.fn(async (id: Uuid) => ({ name: `Room ${id}` })),
+  };
   const subscriber = new IdentityLifecycleSubscriber(
     deps.projection,
     contracts as unknown as ContractRepository,
@@ -61,6 +68,7 @@ function setup() {
     deps.unitOfWork,
     cycles as unknown as LandlordLockCycleRepository,
     GRACE_MS,
+    new ContractNotificationSnapshotService(rooms as unknown as RoomRepository),
   );
   function lockEvent(
     id = generateUuid(),
@@ -82,6 +90,7 @@ function setup() {
     };
   }
   return {
+    rooms,
     ...deps,
     first,
     second,
@@ -98,6 +107,103 @@ function setup() {
 }
 
 describe('Landlord lock choreography (P9-06)', () => {
+  it('sends a grouped decision request only to the landlord and preserves replay guards', async () => {
+    const s = setup();
+    const lock = s.lockEvent();
+    await s.subscriber.handle(lock);
+    s.outbox.append.mockClear();
+    const foreign = createContract(generateUuid());
+    foreign.suspend();
+    const active = createContract(generateUuid(), s.landlordId);
+    s.contracts.findByIdsForUpdate.mockResolvedValue([
+      s.first,
+      s.second,
+      foreign,
+      active,
+    ]);
+    const unlock: IntegrationEvent = {
+      ...lock,
+      id: generateUuid(),
+      eventType: 'user.unlocked',
+      routingKey: 'user.unlocked',
+      occurredAt: new Date(LOCKED_AT.getTime() + 1).toISOString(),
+      payload: { ...lock.payload, status: UserStatus.ACTIVE },
+    };
+    await s.subscriber.handle(unlock);
+    // A new envelope for the same unlock must also remain a no-op.
+    await s.subscriber.handle({ ...unlock, id: generateUuid() });
+    s.inbox.recordIfNew.mockResolvedValueOnce(false);
+    await s.subscriber.handle(unlock);
+    expect(s.outbox.append).toHaveBeenCalledTimes(1);
+    const [messages, context] = s.outbox.append.mock.calls[0];
+    expect(context).toBe(s.context);
+    expect(messages).toHaveLength(1);
+    expect(messages[0].payload).toEqual({
+      sourceService: 'tenancy',
+      recipientUserIds: [s.landlordId],
+      notification: {
+        type: 'system',
+        title:
+          ContractNotificationCodeConstant.CONTRACT_LOCK_DECISION_REQUIRED_TITLE,
+        body: ContractNotificationCodeConstant.CONTRACT_LOCK_DECISION_REQUIRED_BODY,
+        data: {
+          messageKey: 'contract.lock_decision_required',
+          landlordId: s.landlordId,
+          lockCycleId: lock.id,
+          contractIds: [s.first.id, s.second.id],
+          contracts: [s.first, s.second].map((contract) => ({
+            contractId: contract.id,
+            contractCode: `HD-${contract.id.slice(0, 6)}`,
+            roomName: `Room ${contract.roomId}`,
+          })),
+          graceDeadline: new Date(LOCKED_AT.getTime() + GRACE_MS).toISOString(),
+          action: 'decision_required',
+        },
+      },
+    });
+    expect(s.cycles.save).toHaveBeenLastCalledWith(
+      s.snapshots.get(lock.id),
+      s.context,
+    );
+  });
+
+  it('keeps multiple contracts for a shared member in one private notification', async () => {
+    const s = setup();
+    s.members.findActiveByContract.mockImplementation(async (id: Uuid) => [
+      createMember(id, s.member.tenantId),
+      createMember(id, s.member.tenantId),
+      createMember(id),
+    ]);
+    await s.subscriber.handle(s.lockEvent());
+    const [messages] = s.outbox.append.mock.calls[0];
+    const forMember = messages.filter((message) =>
+      (message.payload.recipientUserIds as Uuid[]).includes(s.member.tenantId!),
+    );
+    expect(forMember).toHaveLength(1);
+    expect(forMember[0].payload.notification).toEqual(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          contractIds: [s.first.id, s.second.id],
+          contracts: [s.first, s.second].map((contract) => ({
+            contractId: contract.id,
+            contractCode: `HD-${contract.id.slice(0, 6)}`,
+            roomName: `Room ${contract.roomId}`,
+          })),
+        }),
+      }),
+    );
+  });
+
+  it('does not append another notification after inbox rejects a repeated lock', async () => {
+    const s = setup();
+    const event = s.lockEvent();
+    await s.subscriber.handle(event);
+    s.inbox.recordIfNew.mockResolvedValueOnce(false);
+    await s.subscriber.handle(event);
+    expect(s.outbox.append).toHaveBeenCalledTimes(1);
+    expect(s.rooms.findById).toHaveBeenCalledTimes(2);
+  });
+
   it('suspends contracts and saves cycle and private recipient snapshots in the inbox transaction', async () => {
     const s = setup();
     const id = generateUuid();
@@ -120,38 +226,55 @@ describe('Landlord lock choreography (P9-06)', () => {
       }),
       s.context,
     );
-    const messages = s.outbox.append.mock.calls[0] as unknown as [
-      {
-        payload: {
-          recipientUserIds: Uuid[];
-          notification: { type: string; data: { contractIds: Uuid[] } };
-        };
-      }[],
-      unknown,
-    ];
-    expect(messages[1]).toBe(s.context);
-    const recipients = messages[0].map((message) => ({
-      userId: message.payload.recipientUserIds[0],
-      contractIds: message.payload.notification.data.contractIds,
-    }));
-    expect(recipients).toEqual(
-      expect.arrayContaining([
-        { userId: s.landlordId, contractIds: [s.first.id, s.second.id] },
-        { userId: s.first.tenantId, contractIds: [s.first.id] },
-        { userId: s.member.tenantId, contractIds: [s.first.id] },
-        { userId: s.second.tenantId, contractIds: [s.second.id] },
-      ]),
+    const [messages, context] = s.outbox.append.mock.calls[0];
+    expect(context).toBe(s.context);
+    expect(messages).toHaveLength(4);
+    expect(messages.map((message) => message.payload.recipientUserIds)).toEqual(
+      [
+        [s.landlordId],
+        [s.first.tenantId],
+        [s.member.tenantId],
+        [s.second.tenantId],
+      ],
     );
-    expect(recipients).toHaveLength(4);
-    for (const message of messages[0]) {
-      expect(message.payload.notification).toEqual(
-        expect.objectContaining({
+    const expectedContracts = new Map([
+      [s.landlordId, [s.first, s.second]],
+      [s.first.tenantId, [s.first]],
+      [s.member.tenantId, [s.first]],
+      [s.second.tenantId, [s.second]],
+    ]);
+    for (const message of messages) {
+      const recipient = (message.payload.recipientUserIds as Uuid[])[0];
+      const contracts = expectedContracts.get(recipient)!;
+      expect(message.eventType).toBe('notification.requested');
+      expect(message.routingKey).toBe('notification.requested');
+      expect(message.payload).toEqual({
+        sourceService: 'tenancy',
+        recipientUserIds: [recipient],
+        notification: {
           type: 'system',
-          title: 'CONTRACT_SUSPENDED_TITLE',
-          body: 'CONTRACT_SUSPENDED_BODY',
-        }),
-      );
+          title: ContractNotificationCodeConstant.CONTRACT_SUSPENDED_TITLE,
+          body: ContractNotificationCodeConstant.CONTRACT_SUSPENDED_BODY,
+          data: {
+            messageKey: 'contract.suspended',
+            landlordId: s.landlordId,
+            lockCycleId: id,
+            contractIds: contracts.map((contract) => contract.id),
+            contracts: contracts.map((contract) => ({
+              contractId: contract.id,
+              contractCode: `HD-${contract.id.slice(0, 6)}`,
+              roomName: `Room ${contract.roomId}`,
+            })),
+            graceDeadline: new Date(
+              LOCKED_AT.getTime() + GRACE_MS,
+            ).toISOString(),
+          },
+        },
+      });
     }
+    expect(s.contracts.save).toHaveBeenCalledWith(s.second, s.context);
+    expect(s.rooms.findById).toHaveBeenCalledWith(s.first.roomId, s.context);
+    expect(s.rooms.findById).toHaveBeenCalledWith(s.second.roomId, s.context);
   });
 
   it('does not duplicate cycles or notices for another envelope of the same or older lock', async () => {

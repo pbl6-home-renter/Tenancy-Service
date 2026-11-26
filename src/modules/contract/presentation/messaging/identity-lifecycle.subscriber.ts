@@ -16,6 +16,8 @@ import { isValidUuid, Uuid } from 'shared/domain/value-objects/uuid.vo';
 import { ConsumerRegistry } from 'shared/infrastructure/messaging/rabbitmq/consumer/consumer-registry';
 import { CONTRACT_DI_TOKEN } from '../../contract.di-token';
 import { TenantUserProjectionPort } from '../../application/ports/tenant-user-projection.port';
+import { ContractNotificationSnapshotService } from '../../application/services/contract-notification-snapshot.service';
+import { ContractNotificationSnapshot } from '../../domain/events/contract-notification-snapshot';
 import { LandlordLockCycleEntity } from '../../domain/entities/landlord-lock-cycle.entity';
 import { ContractStatus } from '../../domain/enums/contract-status.enum';
 import { LandlordLockCycleRepository } from '../../domain/repositories/landlord-lock-cycle.repository';
@@ -58,6 +60,7 @@ export class IdentityLifecycleSubscriber {
     private readonly cycles: LandlordLockCycleRepository,
     @Inject(CONTRACT_DI_TOKEN.LANDLORD_LOCK_GRACE_PERIOD_MS)
     private readonly gracePeriodMs: number,
+    private readonly notificationSnapshots: ContractNotificationSnapshotService,
   ) {}
 
   @RabbitSubscribe({
@@ -128,7 +131,7 @@ export class IdentityLifecycleSubscriber {
     if (
       !cycle.beginDecision(
         new Date(event.occurredAt),
-        pending.map((contract) => contract.id),
+        await this.notificationSnapshots.create(pending, context),
       )
     )
       return;
@@ -176,7 +179,7 @@ export class IdentityLifecycleSubscriber {
     await this.cycles.save(cycle, context);
 
     // Keep each recipient's snapshot limited to their own contracts.
-    const recipientContracts = new Map<Uuid, Uuid[]>();
+    const recipientContracts = new Map<Uuid, ContractNotificationSnapshot[]>();
     for (const contract of contracts) {
       if (contract.status !== ContractStatus.ACTIVE) continue;
       contract.suspend();
@@ -188,14 +191,18 @@ export class IdentityLifecycleSubscriber {
       const recipients = contract.notificationRecipientIds(
         members.map((member) => member.tenantId),
       );
+      const snapshots = await this.notificationSnapshots.create(
+        [contract],
+        context,
+      );
       for (const recipient of recipients) {
-        const ids = recipientContracts.get(recipient) ?? [];
-        ids.push(contract.id);
-        recipientContracts.set(recipient, ids);
+        const snapshotsForRecipient = recipientContracts.get(recipient) ?? [];
+        snapshotsForRecipient.push(...snapshots);
+        recipientContracts.set(recipient, snapshotsForRecipient);
       }
     }
-    for (const [recipient, contractIds] of recipientContracts) {
-      cycle.requestSuspensionNotification(recipient, contractIds);
+    for (const [recipient, snapshots] of recipientContracts) {
+      cycle.requestSuspensionNotification(recipient, snapshots);
     }
     await this.outbox.append(
       cycle

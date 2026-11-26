@@ -3,6 +3,7 @@ import { ValidationException } from 'shared/domain/exceptions/validation.excepti
 import { Uuid } from 'shared/domain/value-objects/uuid.vo';
 import { ContractSuspensionNotificationRequestedEvent } from '../events/contract-suspension-notification-requested.event';
 import { ContractLockResolutionNotificationRequestedEvent } from '../events/contract-lock-resolution-notification-requested.event';
+import { ContractNotificationSnapshot } from '../events/contract-notification-snapshot';
 import { ContractLockDecisionConflictException } from '../exceptions/contract-lock-decision-conflict.exception';
 import { ContractLockDecisionInvalidException } from '../exceptions/contract-lock-decision-invalid.exception';
 import { LandlordLockCycleNotAwaitingDecisionException } from '../exceptions/landlord-lock-cycle-not-awaiting-decision.exception';
@@ -80,7 +81,10 @@ export class LandlordLockCycleEntity extends AggregateRoot {
     return structuredClone(this._decisions);
   }
 
-  beginDecision(unlockedAt: Date, contractIds: Uuid[]): boolean {
+  beginDecision(
+    unlockedAt: Date,
+    contracts: ContractNotificationSnapshot[],
+  ): boolean {
     if (!Number.isFinite(unlockedAt.getTime()))
       throw new ValidationException('Invalid landlord unlock time');
     if (
@@ -90,12 +94,12 @@ export class LandlordLockCycleEntity extends AggregateRoot {
     )
       return false;
     this._unlockedAt = new Date(unlockedAt);
-    this._state = contractIds.length ? 'decision_pending' : 'completed';
+    this._state = contracts.length ? 'decision_pending' : 'completed';
     this.updatedAt.setTime(Date.now());
-    if (contractIds.length)
+    if (contracts.length)
       this.requestResolutionNotification(
         this.landlordId,
-        contractIds,
+        contracts,
         'decision_required',
       );
     return true;
@@ -142,14 +146,14 @@ export class LandlordLockCycleEntity extends AggregateRoot {
 
   requestResolutionNotification(
     recipientUserId: Uuid,
-    contractIds: Uuid[],
+    contracts: ContractNotificationSnapshot[],
     action: 'decision_required' | ContractLockDecisionAction,
   ): void {
     this.addDomainEvent(
       new ContractLockResolutionNotificationRequestedEvent(
         this,
         recipientUserId,
-        contractIds,
+        contracts,
         action,
       ),
     );
@@ -157,13 +161,13 @@ export class LandlordLockCycleEntity extends AggregateRoot {
 
   requestSuspensionNotification(
     recipientUserId: Uuid,
-    contractIds: Uuid[],
+    contracts: ContractNotificationSnapshot[],
   ): void {
     this.addDomainEvent(
       new ContractSuspensionNotificationRequestedEvent(
         this,
         [recipientUserId],
-        contractIds,
+        contracts,
       ),
     );
   }

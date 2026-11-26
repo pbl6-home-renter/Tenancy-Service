@@ -1,3 +1,4 @@
+import { InvoiceNotificationCodeConstant } from 'modules/invoice/domain/constants/invoice-notification-code.constant';
 import { ContractMember } from 'modules/contract/domain/entities/contract-member.entity';
 import { ContractMemberRepository } from 'modules/contract/domain/repositories/contract-member.repository';
 import { InvoiceIssueItemService } from 'modules/invoice/application/services/invoice-issue-item.service';
@@ -119,16 +120,47 @@ describe('InvoiceIssueItemService notification', () => {
       recipientUserIds: [tenantId, secondTenantId],
       notification: {
         type: 'invoice',
-        title: 'Hóa đơn đã được phát hành',
-        body: 'Hóa đơn kỳ 2026-11 đã được phát hành.',
+        title: InvoiceNotificationCodeConstant.INVOICE_ISSUED_TITLE,
+        body: InvoiceNotificationCodeConstant.INVOICE_ISSUED_BODY,
         deepLink: `/invoices/${state.invoice.id}`,
         data: {
+          messageKey: 'invoice.issued',
           invoiceId: state.invoice.id,
           contractId: state.invoice.contractId,
           period: '2026-11',
         },
       },
     });
+  });
+
+  it('does not append duplicate events when issuance is replayed', async () => {
+    const state = setup([member(generateUuid(), '2026-11-01')]);
+    await state.service.issue(state.invoice.id, state.landlordId);
+    await expect(
+      state.service.issue(state.invoice.id, state.landlordId),
+    ).resolves.toEqual({
+      invoiceId: state.invoice.id,
+      code: 'INVOICE_NOT_PENDING',
+    });
+    expect(state.invoices.save).toHaveBeenCalledTimes(1);
+    expect(state.outbox.append).toHaveBeenCalledTimes(1);
+  });
+
+  it('propagates outbox failure through the issuance transaction', async () => {
+    const state = setup([member(generateUuid(), '2026-11-01')]);
+    const failure = new Error('outbox unavailable');
+    (state.outbox.append as jest.Mock).mockRejectedValueOnce(failure);
+    await expect(
+      state.service.issue(state.invoice.id, state.landlordId),
+    ).rejects.toBe(failure);
+    expect(state.invoices.save).toHaveBeenCalledWith(
+      state.invoice,
+      state.context,
+    );
+    expect(state.outbox.append).toHaveBeenCalledWith(
+      expect.anything(),
+      state.context,
+    );
   });
 
   it('issues without a notification request when no linked member is eligible', async () => {
