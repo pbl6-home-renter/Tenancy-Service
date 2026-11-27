@@ -40,7 +40,7 @@ Service được fork từ [`boilerplate`](https://github.com/pbl6-home-renter/b
 - **Phòng (Room)** — chỉ tạo được trong tòa nhà đã duyệt; giá thuê, tiền cọc, diện tích, tầng, tiện ích, sức chứa, chính sách giới tính (`any | male | female`). Trạng thái `available | occupied | maintenance`, có thao tác `mark-ready` (`maintenance → available`).
 - **Tìm kiếm công khai** — lọc tòa nhà theo tỉnh/phường/từ khóa; lọc phòng theo tỉnh/phường/khoảng giá/chính sách giới tính, có phân trang.
 - **Đơn vị hành chính** — danh mục tỉnh và phường (dữ liệu v2 từ `provinces.open-api.vn`) được đóng gói sẵn dạng JSON snapshot, phục vụ cục bộ, không phụ thuộc mạng lúc runtime.
-- **Hợp đồng (Contract)** — đã có domain + persistence (bảng `contracts`, trạng thái `draft | signed | active | suspended | expired | terminated`); chưa expose HTTP endpoint.
+- **Hợp đồng (Contract)** — đã có domain + persistence (bảng `contracts`, trạng thái `draft | signed | active | expired | terminated`); chưa expose HTTP endpoint.
 - **Sự kiện tin cậy** — mọi thay đổi aggregate ghi kèm `outbox_messages` trong cùng transaction, relay publish lên RabbitMQ topic exchange (at-least-once, retry + DLQ).
 - **Bảo mật** — tự verify JWT RS256 của Identity-Service qua JWKS cache; phân quyền `LANDLORD` / `ADMIN`, kiểm tra quyền sở hữu trong use case.
 
@@ -264,7 +264,7 @@ erDiagram
         uuid tenantId
         date startDate
         date endDate
-        enum status "draft | signed | active | suspended | expired | terminated"
+        enum status "draft | signed | active | expired | terminated"
     }
 ```
 

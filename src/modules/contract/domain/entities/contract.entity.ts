@@ -11,7 +11,6 @@ import { ContractCreatedEvent } from '../events/contract-created.event';
 import { ContractUpdatedEvent } from '../events/contract-updated.event';
 import { ContractActivatedEvent } from '../events/contract-activated.event';
 import { ContractTerminatedEvent } from '../events/contract-terminated.event';
-import { ContractLockDecisionInvalidException } from '../exceptions/contract-lock-decision-invalid.exception';
 import { ContractHandoverConflictException } from '../exceptions/contract-handover-conflict.exception';
 import { ContractNotActiveException } from '../exceptions/contract-not-active.exception';
 import { ContractNotFoundException } from '../exceptions/contract-not-found.exception';
@@ -26,6 +25,7 @@ import {
 } from './contract.props';
 
 export class ContractEntity extends AggregateRoot {
+  // Retained for legacy terminated contracts awaiting handover; never creates new lock cycles.
   private _lockTerminationCycleId: Uuid | null = null;
   private _handoverCompletedOn: string | null = null;
   private constructor(
@@ -135,41 +135,15 @@ export class ContractEntity extends AggregateRoot {
     );
   }
 
-  notificationRecipientIds(memberTenantIds: readonly (Uuid | null)[]): Uuid[] {
-    return [
-      ...new Set(
-        [this.landlordId, this.tenantId, ...memberTenantIds].filter(
-          (id): id is Uuid => id !== null,
-        ),
-      ),
-    ];
-  }
-
-  restoreAfterLandlordLock(): void {
-    this.assertNotDeleted();
-    if (this.status !== ContractStatus.SUSPENDED)
-      throw new ContractLockDecisionInvalidException();
-    this._status = ContractStatus.ACTIVE;
-    this.touch();
-  }
-
-  terminateAfterLandlordLock(cycleId: Uuid): void {
-    this.assertNotDeleted();
-    if (this.status !== ContractStatus.SUSPENDED)
-      throw new ContractLockDecisionInvalidException();
-    ContractEntity.assertUuid('lockCycleId', cycleId);
-    this._status = ContractStatus.TERMINATED;
-    this._lockTerminationCycleId = cycleId;
-    this.touch();
-  }
-
   completeLockHandover(completedOn: Date): boolean {
     this.assertNotDeleted();
     if (
       this._lockTerminationCycleId === null ||
       this.status !== ContractStatus.TERMINATED
     )
-      throw new ContractLockDecisionInvalidException();
+      throw new ValidationException(
+        'Contract does not require legacy handover',
+      );
     ContractEntity.assertTimestamp('completedOn', completedOn);
     const date = completedOn.toISOString().slice(0, 10);
     if (this._handoverCompletedOn !== null) {
@@ -325,15 +299,6 @@ export class ContractEntity extends AggregateRoot {
       this._description = input.description;
     }
     this.recordUpdate();
-  }
-
-  suspend(): void {
-    this.assertNotDeleted();
-    if (this.status !== ContractStatus.ACTIVE) {
-      throw new ContractNotActiveException();
-    }
-    this._status = ContractStatus.SUSPENDED;
-    this.touch();
   }
 
   terminate(completedOn: Date): void {

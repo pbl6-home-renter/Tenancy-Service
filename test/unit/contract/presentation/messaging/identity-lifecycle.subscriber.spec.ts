@@ -1,13 +1,9 @@
-import { RoomRepository } from 'modules/room/domain/repositories/room.repository';
-import { ContractNotificationSnapshotService } from 'modules/contract/application/services/contract-notification-snapshot.service';
-import { LandlordLockCycleRepository } from 'modules/contract/domain/repositories/landlord-lock-cycle.repository';
-import { ContractStatus } from 'modules/contract/domain/enums/contract-status.enum';
 import { IdentityLifecycleSubscriber } from 'modules/contract/presentation/messaging/identity-lifecycle.subscriber';
 import { IntegrationEvent } from 'shared/application/messaging/integration-event';
 import { UserRole } from 'shared/domain/enums/user-role.enum';
 import { UserStatus } from 'shared/domain/enums/user-status.enum';
 import { ValidationException } from 'shared/domain/exceptions/validation.exception';
-import { generateUuid, Uuid } from 'shared/domain/value-objects/uuid.vo';
+import { generateUuid } from 'shared/domain/value-objects/uuid.vo';
 import { InboxRepository } from 'modules/inbox/application/ports/inbox.repository';
 import { OutboxRepository } from 'modules/outbox/domain/repositories/outbox.repository';
 import { ContractRepository } from 'modules/contract/domain/repositories/contract.repository';
@@ -27,7 +23,6 @@ function setup() {
   const deps = createLinkDependencies();
   const contracts = {
     findUnlinkedByPhoneForUpdate: jest.fn(async () => [contract]),
-    findForLandlordLockForUpdate: jest.fn(async () => [contract]),
     save: jest.fn(async () => undefined),
     linkTenantMany: jest.fn(async () => undefined),
   };
@@ -41,14 +36,6 @@ function setup() {
     linkTenantMany: jest.fn(async () => undefined),
   };
   const inbox = { recordIfNew: jest.fn(async () => true) };
-  const cycles = {
-    lockLandlord: jest.fn(async () => undefined),
-    findLatestForUpdate: jest.fn(async () => null),
-    save: jest.fn(async () => undefined),
-  };
-  const rooms = {
-    findById: jest.fn(async (id: Uuid) => ({ name: `Room ${id}` })),
-  };
   const handler = new IdentityLifecycleSubscriber(
     deps.projection,
     contracts as unknown as ContractRepository,
@@ -56,9 +43,6 @@ function setup() {
     deps.outbox as unknown as OutboxRepository,
     inbox as unknown as InboxRepository,
     deps.unitOfWork,
-    cycles as unknown as LandlordLockCycleRepository,
-    60_000,
-    new ContractNotificationSnapshotService(rooms as unknown as RoomRepository),
   );
   const userId = generateUuid();
   function event(
@@ -88,7 +72,6 @@ function setup() {
     members,
     member,
     inbox,
-    cycles,
     handler,
     userId,
     event,
@@ -96,28 +79,41 @@ function setup() {
 }
 
 describe('IdentityLifecycleSubscriber tenant projection and linking (P9-02)', () => {
-  it('suspends landlord contracts using the same inbox transaction', async () => {
-    const s = setup();
-    const lockedAt = '2026-11-14T00:00:00.000Z';
-    const event = s.event('user.locked', {
-      role: UserRole.LANDLORD,
-      status: UserStatus.LOCKED,
-      lockedAt,
-    });
-    await s.handler.handle(event);
-    expect(s.contract.status).toBe(ContractStatus.SUSPENDED);
-    expect(s.cycles.lockLandlord).toHaveBeenCalledWith(s.userId, s.context);
-    expect(s.contracts.save).toHaveBeenCalledWith(s.contract, s.context);
-    expect(s.cycles.save).toHaveBeenCalledWith(
-      expect.objectContaining({ id: event.id, contractIds: [s.contract.id] }),
-      s.context,
-    );
-    expect(s.inbox.recordIfNew).toHaveBeenCalledWith(
-      event.id,
-      event.eventType,
-      s.context,
-    );
-  });
+  it.each(['user.locked', 'user.unlocked'])(
+    'acknowledges duplicate and delayed landlord %s events without touching contracts, projection or outbox',
+    async (eventType) => {
+      const s = setup();
+      const event = s.event(eventType, {
+        role: UserRole.LANDLORD,
+        status:
+          eventType === 'user.locked' ? UserStatus.LOCKED : UserStatus.ACTIVE,
+        lockedAt: '2025-01-01T00:00:00.000Z',
+      });
+      const originalStatus = s.contract.status;
+      s.inbox.recordIfNew
+        .mockResolvedValueOnce(true)
+        .mockResolvedValueOnce(false)
+        .mockResolvedValueOnce(true);
+      await s.handler.handle(event);
+      await s.handler.handle(event);
+      await s.handler.handle({ ...event, id: generateUuid() });
+      expect(s.inbox.recordIfNew).toHaveBeenCalledTimes(3);
+      expect(s.inbox.recordIfNew).toHaveBeenCalledWith(
+        event.id,
+        eventType,
+        s.context,
+      );
+      expect(s.unitOfWork.run).toHaveBeenCalledTimes(3);
+      expect(s.contract.status).toBe(originalStatus);
+      expect(s.contracts.save).not.toHaveBeenCalled();
+      expect(s.contracts.findUnlinkedByPhoneForUpdate).not.toHaveBeenCalled();
+      expect(s.members.findActiveByContract).not.toHaveBeenCalled();
+      expect(s.members.linkTenantMany).not.toHaveBeenCalled();
+      expect(s.projection.delete).not.toHaveBeenCalled();
+      expect(s.projection.upsert).not.toHaveBeenCalled();
+      expect(s.outbox.append).not.toHaveBeenCalled();
+    },
+  );
 
   it('removes a locked tenant from lookup without suspending contracts', async () => {
     const s = setup();
@@ -128,7 +124,9 @@ describe('IdentityLifecycleSubscriber tenant projection and linking (P9-02)', ()
       }),
     );
     expect(s.projection.delete).toHaveBeenCalledWith(s.userId, s.context);
-    expect(s.cycles.lockLandlord).not.toHaveBeenCalled();
+    expect(s.contract.status).toBe('active');
+    expect(s.contracts.save).not.toHaveBeenCalled();
+    expect(s.contracts.findUnlinkedByPhoneForUpdate).not.toHaveBeenCalled();
     expect(s.members.linkTenantMany).not.toHaveBeenCalled();
   });
 
@@ -140,7 +138,6 @@ describe('IdentityLifecycleSubscriber tenant projection and linking (P9-02)', ()
       expect.objectContaining({ normalizedValue: '0912345678' }),
       s.context,
     );
-    expect(s.cycles.lockLandlord).not.toHaveBeenCalled();
   });
 
   it('accepts legacy unlock payloads without restoring landlord contracts', async () => {
@@ -150,22 +147,6 @@ describe('IdentityLifecycleSubscriber tenant projection and linking (P9-02)', ()
       payload: { userId: s.userId, status: UserStatus.ACTIVE },
     });
     expect(s.projection.upsert).not.toHaveBeenCalled();
-    expect(s.cycles.lockLandlord).not.toHaveBeenCalled();
-  });
-
-  it('deduplicates landlord locks before suspension', async () => {
-    const s = setup();
-    s.inbox.recordIfNew
-      .mockResolvedValueOnce(true)
-      .mockResolvedValueOnce(false);
-    const event = s.event('user.locked', {
-      role: UserRole.LANDLORD,
-      status: UserStatus.LOCKED,
-      lockedAt: '2026-11-14T00:00:00.000Z',
-    });
-    await s.handler.handle(event);
-    await s.handler.handle(event);
-    expect(s.cycles.lockLandlord).toHaveBeenCalledTimes(1);
   });
 
   it.each(['invalid', '2026-02-30T00:00:00.000Z'])(
@@ -184,7 +165,12 @@ describe('IdentityLifecycleSubscriber tenant projection and linking (P9-02)', ()
     },
   );
 
-  it.each(['user.registered', 'user.updated', 'user.email_verified'])(
+  it.each([
+    'user.registered',
+    'user.updated',
+    'user.email_verified',
+    'user.unlocked',
+  ])(
     'updates the projection and reconciles unlinked members on %s in one transaction',
     async (eventType) => {
       const s = setup();

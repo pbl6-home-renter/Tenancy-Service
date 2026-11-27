@@ -1,19 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, In, IsNull, Repository } from 'typeorm';
-import { OffsetPageQuery } from 'shared/application/pagination/offset-page-query';
-import { PaginatedResult } from 'shared/application/pagination/paginated-result';
 import { TransactionContext } from 'shared/domain/repositories/transaction-context';
 import { Uuid } from 'shared/domain/value-objects/uuid.vo';
-import { TypeOrmOffsetPaginator } from 'shared/infrastructure/database/pagination/offset.paginator';
 import { withTransaction } from 'shared/infrastructure/database/transaction/typeorm-transaction-context';
 import { RoomTypeormEntity } from 'modules/room/infrastructure/persistence/room.typeorm-entity';
 import { ContractEntity } from '../../domain/entities/contract.entity';
 import { ContractStatus } from '../../domain/enums/contract-status.enum';
-import {
-  ContractListFilter,
-  ContractRepository,
-} from '../../domain/repositories/contract.repository';
+import { ContractRepository } from '../../domain/repositories/contract.repository';
 import { ContractTypeormEntity } from './contract.entity';
 import { ContractMemberTypeormEntity } from './contract-member.entity';
 import { ContractMapper } from './mappers/contract.mapper';
@@ -25,19 +19,6 @@ export class TypeOrmContractRepository implements ContractRepository {
     @InjectRepository(ContractTypeormEntity)
     private readonly repository: Repository<ContractTypeormEntity>,
   ) {}
-
-  async findByIdsForUpdate(
-    ids: Uuid[],
-    context: TransactionContext,
-  ): Promise<ContractEntity[]> {
-    if (ids.length === 0) return [];
-    const rows = await withTransaction(this.repository, context).find({
-      where: { id: In(ids), isDeleted: false },
-      order: { id: 'ASC' },
-      lock: { mode: 'pessimistic_write' },
-    });
-    return rows.map(ContractMapper.toDomain);
-  }
 
   existsBlockingByRoom(
     roomId: Uuid,
@@ -54,7 +35,7 @@ export class TypeOrmContractRepository implements ContractRepository {
         { excludedContractId },
       )
       .andWhere(
-        "(contract.status IN ('active', 'suspended') OR (contract.status = 'terminated' AND contract.lockTerminationCycleId IS NOT NULL AND contract.handoverCompletedOn IS NULL))",
+        "(contract.status = 'active' OR (contract.status = 'terminated' AND contract.lockTerminationCycleId IS NOT NULL AND contract.handoverCompletedOn IS NULL))",
       )
       .getExists();
   }
@@ -70,31 +51,6 @@ export class TypeOrmContractRepository implements ContractRepository {
       { id: In(ids), isDeleted: false },
       { tenantId, updatedAt: new Date() },
     );
-  }
-
-  async findForLandlordLockForUpdate(
-    landlordId: Uuid,
-    previousContractIds: Uuid[],
-    context: TransactionContext,
-  ): Promise<ContractEntity[]> {
-    const rows = await withTransaction(this.repository, context).find({
-      where: [
-        { landlordId, status: ContractStatus.ACTIVE, isDeleted: false },
-        ...(previousContractIds.length === 0
-          ? []
-          : [
-              {
-                landlordId,
-                id: In(previousContractIds),
-                status: ContractStatus.SUSPENDED,
-                isDeleted: false,
-              },
-            ]),
-      ],
-      order: { id: 'ASC' },
-      lock: { mode: 'pessimistic_write' },
-    });
-    return rows.map(ContractMapper.toDomain);
   }
 
   async findUnlinkedByPhoneForUpdate(
@@ -190,48 +146,6 @@ export class TypeOrmContractRepository implements ContractRepository {
       .addOrderBy('contract.id', 'ASC')
       .getMany();
     return rows.map(ContractMapper.toDomain);
-  }
-
-  async findPageByLandlord(
-    landlordId: Uuid,
-    options: OffsetPageQuery<ContractListFilter>,
-  ): Promise<PaginatedResult<ContractEntity>> {
-    const query = this.repository
-      .createQueryBuilder('contract')
-      .where('contract.landlordId = :landlordId', { landlordId })
-      .andWhere('contract.isDeleted = :isDeleted', { isDeleted: false });
-
-    if (options.filter?.roomId) {
-      query.andWhere('contract.roomId = :roomId', {
-        roomId: options.filter.roomId,
-      });
-    }
-    if (options.filter?.buildingId) {
-      query
-        .innerJoin(RoomTypeormEntity, 'room', 'room.id = contract.roomId')
-        .andWhere('room.buildingId = :buildingId', {
-          buildingId: options.filter.buildingId,
-        });
-    }
-    if (options.filter?.status) {
-      query.andWhere('contract.status = :status', {
-        status: options.filter.status,
-      });
-    }
-    if (options.filter?.tenantId) {
-      query.andWhere('contract.tenantId = :tenantId', {
-        tenantId: options.filter.tenantId,
-      });
-    }
-
-    return TypeOrmOffsetPaginator.of(query, options)
-      .withSort({
-        whitelist: ['createdAt'],
-        defaultSort: 'createdAt',
-        defaultOrder: 'desc',
-        alias: 'contract',
-      })
-      .paginate(ContractMapper.toDomain);
   }
 
   async delete(id: Uuid, context?: TransactionContext): Promise<void> {

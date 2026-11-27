@@ -53,6 +53,7 @@ export class ContractCheckoutCompleteCommandHandler implements ICommandHandler<
         throw new ContractForbiddenException();
       }
 
+      // Legacy handover uses only the persisted marker, never the removed lock-cycle table.
       const lockHandover = contract.lockTerminationCycleId !== null;
       if (lockHandover && !contract.completeLockHandover(command.completedOn))
         return contract;

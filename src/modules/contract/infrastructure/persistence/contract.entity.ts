@@ -16,7 +16,7 @@ const moneyTransformer = {
 @Index('UQ_contracts_room_occupancy', ['roomId'], {
   unique: true,
   where:
-    "is_deleted = false AND (status IN ('active', 'suspended') OR (status = 'terminated' AND lock_termination_cycle_id IS NOT NULL AND handover_completed_on IS NULL))",
+    "is_deleted = false AND (status = 'active' OR (status = 'terminated' AND lock_termination_cycle_id IS NOT NULL AND handover_completed_on IS NULL))",
 })
 @Check(
   'CHK_contracts_tenant_identity',
@@ -101,6 +101,7 @@ export class ContractTypeormEntity extends AbstractEntity {
   @Column({ type: 'uuid', array: true, default: () => "'{}'" })
   signedContractMediaIds: Uuid[];
 
+  // Legacy handover marker intentionally survives removal of the cycle table (no FK).
   @Column({ type: 'uuid', nullable: true })
   lockTerminationCycleId: Uuid | null;
 

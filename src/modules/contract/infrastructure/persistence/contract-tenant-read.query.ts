@@ -174,7 +174,7 @@ export class TypeOrmContractTenantReadQuery implements ContractTenantReadPort {
           "CASE WHEN member.tenantId IS NULL THEN 'member:' || CAST(member.id AS text) ELSE 'tenant:' || CAST(member.tenantId AS text) END",
           'group_key',
         )
-        // P9-07 retains occupancy until handover for lock-cycle terminations.
+        // Legacy terminations retain occupancy until handover, without a cycle lookup.
         .addSelect(
           `(member.leftAt IS NULL OR member.leftAt > :today) AND
         (contract.status IN (:...roomHoldingStatuses) OR
@@ -189,10 +189,7 @@ export class TypeOrmContractTenantReadQuery implements ContractTenantReadPort {
         .andWhere('member.joinedAt <= :today')
         .setParameters({
           today: new Date().toISOString().slice(0, 10),
-          roomHoldingStatuses: [
-            ContractStatus.ACTIVE,
-            ContractStatus.SUSPENDED,
-          ],
+          roomHoldingStatuses: [ContractStatus.ACTIVE],
           terminated: ContractStatus.TERMINATED,
         })
     );

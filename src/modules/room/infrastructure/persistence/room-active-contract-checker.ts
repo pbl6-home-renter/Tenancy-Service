@@ -31,7 +31,7 @@ export class TypeOrmRoomActiveContractChecker implements RoomActiveContractCheck
       .andWhere(
         '(contract.status IN (:...statuses) OR (contract.status = :terminated AND contract.lockTerminationCycleId IS NOT NULL AND contract.handoverCompletedOn IS NULL))',
         {
-          statuses: [ContractStatus.ACTIVE, ContractStatus.SUSPENDED],
+          statuses: [ContractStatus.ACTIVE],
           terminated: ContractStatus.TERMINATED,
         },
       )
