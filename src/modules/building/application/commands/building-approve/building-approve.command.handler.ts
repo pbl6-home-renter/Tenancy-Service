@@ -7,6 +7,7 @@ import { UNIT_OF_WORK_DI_TOKEN } from 'shared/application/di-tokens';
 import { IUnitOfWork } from 'shared/application/ports/unit-of-work.port';
 import { BUILDING_DI_TOKEN } from '../../../building.di-token';
 import { BuildingEntity } from '../../../domain/entities/building.entity';
+import { BuildingNotificationRequestedEvent } from '../../../domain/events/building-notification-requested.event';
 import { BuildingNotFoundException } from '../../../domain/exceptions/building-not-found.exception';
 import { BuildingRepository } from '../../../domain/repositories/building.repository';
 import { BuildingApproveCommand } from './building-approve.command';
@@ -34,11 +35,22 @@ export class BuildingApproveCommandHandler implements ICommandHandler<
       if (!building) throw new BuildingNotFoundException(command.buildingId);
 
       building.approve(command.adminId, command.note);
+      const events = building.pullDomainEvents();
+      if (building.landlordId !== command.adminId) {
+        events.push(
+          new BuildingNotificationRequestedEvent(
+            building.id,
+            'building.approved',
+            building.name,
+            building.note,
+            [building.landlordId],
+            building.reviewedAt!,
+          ),
+        );
+      }
       await this.buildingRepository.save(building, context);
       await this.outboxRepository.append(
-        building
-          .pullDomainEvents()
-          .map((event) => OutboxMessage.fromDomainEvent(event)),
+        events.map((event) => OutboxMessage.fromDomainEvent(event)),
         context,
       );
       return building;
