@@ -27,6 +27,7 @@ import { BuildingSearchPublicQueryHandler } from './application/queries/building
 import { BuildingGetPublicQueryHandler } from './application/queries/building-get-public/building-get-public.query.handler';
 import { MEDIA_LOOKUP_PORT } from 'modules/media/application/ports/media-lookup.port';
 import { IdentityMediaLookupService } from 'modules/media/infrastructure/services/identity-media-lookup.service';
+import { IdentityBuildingNotificationRecipientReader } from './infrastructure/services/identity-building-notification-recipient.reader';
 
 const commandHandlers = [
   BuildingApproveCommandHandler,
@@ -76,6 +77,10 @@ const queryHandlers = [
     {
       provide: BUILDING_DI_TOKEN.INTERNAL_USER,
       useClass: InternalUserService,
+    },
+    {
+      provide: BUILDING_DI_TOKEN.NOTIFICATION_RECIPIENT_READER,
+      useClass: IdentityBuildingNotificationRecipientReader,
     },
   ],
   exports: [BUILDING_DI_TOKEN.REPOSITORY, BUILDING_DI_TOKEN.GEOCODING],
