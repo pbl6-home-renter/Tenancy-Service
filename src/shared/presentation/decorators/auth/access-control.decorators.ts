@@ -11,8 +11,8 @@ export const Roles = (...roles: UserRole[]) =>
 
 /**
  * Lets a locked account call the handler. Without arguments every role is
- * allowed; with roles only those may (e.g. `@AllowLocked(UserRole.TENANT)`:
- * a locked tenant can still pay invoices, a locked landlord cannot manage).
+ * allowed; with roles only those may (e.g. `@AllowLocked(UserRole.TENANT)`
+ * permits a locked tenant on a tenant-only read route).
  */
 export const AllowLocked = (...roles: UserRole[]) =>
   SetMetadata(AuthMetadataKeys.ALLOW_LOCKED, roles);

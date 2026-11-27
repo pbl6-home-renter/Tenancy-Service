@@ -27,7 +27,10 @@ import { PaginatedResult } from 'shared/application/pagination/paginated-result'
 import { UserRole } from 'shared/domain/enums/user-role.enum';
 import { Uuid } from 'shared/domain/value-objects/uuid.vo';
 import { ApiSuccessResponse } from 'shared/presentation/decorators/api-success-response.decorator';
-import { Roles } from 'shared/presentation/decorators/auth/access-control.decorators';
+import {
+  AllowLocked,
+  Roles,
+} from 'shared/presentation/decorators/auth/access-control.decorators';
 import { CurrentUser } from 'shared/presentation/decorators/auth/current-user.decorator';
 import { ResponseCode } from 'shared/presentation/decorators/response-code.decorator';
 import { PaginatedResponseDto } from 'shared/presentation/pagination/paginated.response.dto';
@@ -83,6 +86,7 @@ export class ContractMemberController {
 
   @Get()
   @Roles(UserRole.LANDLORD, UserRole.TENANT)
+  @AllowLocked(UserRole.LANDLORD, UserRole.TENANT)
   @HttpCode(HttpStatus.OK)
   @ResponseCode(Code.CONTRACT_MEMBERS_FETCHED)
   @ApiOperation({
