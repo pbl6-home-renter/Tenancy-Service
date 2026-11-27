@@ -8,6 +8,7 @@ import { RoomRepository } from 'modules/room/domain/repositories/room.repository
 import { ROOM_DI_TOKEN } from 'modules/room/room.di-token';
 import { UNIT_OF_WORK_DI_TOKEN } from 'shared/application/di-tokens';
 import { IUnitOfWork } from 'shared/application/ports/unit-of-work.port';
+import { Uuid } from 'shared/domain/value-objects/uuid.vo';
 import { CONTRACT_DI_TOKEN } from '../../../contract.di-token';
 import { ContractEntity } from '../../../domain/entities/contract.entity';
 import { ContractForbiddenException } from '../../../domain/exceptions/contract-forbidden.exception';
@@ -17,6 +18,8 @@ import { ContractMemberRepository } from '../../../domain/repositories/contract-
 import { ContractRepository } from '../../../domain/repositories/contract.repository';
 import { ContractSettlementPort } from '../../ports/contract-settlement.port';
 import { ContractCheckoutCompleteCommand } from './contract-checkout-complete.command';
+import { ContractLifecycleNotificationRequestedEvent } from '../../../domain/events/contract-lifecycle-notification-requested.event';
+import { ContractMemberNotificationSnapshotService } from '../../services/contract-member-notification-snapshot.service';
 
 @CommandHandler(ContractCheckoutCompleteCommand)
 export class ContractCheckoutCompleteCommandHandler implements ICommandHandler<
@@ -36,6 +39,7 @@ export class ContractCheckoutCompleteCommandHandler implements ICommandHandler<
     private readonly unitOfWork: IUnitOfWork,
     @Inject(OUTBOX_DI_TOKEN.REPOSITORY)
     private readonly outboxRepository: OutboxRepository,
+    private readonly notificationSnapshots: ContractMemberNotificationSnapshotService,
   ) {}
 
   execute(command: ContractCheckoutCompleteCommand): Promise<ContractEntity> {
@@ -68,6 +72,16 @@ export class ContractCheckoutCompleteCommandHandler implements ICommandHandler<
         contract.id,
         context,
       );
+      const recipientUserIds = [
+        ...new Set(
+          [
+            contract.tenantId,
+            ...members.map((member) => member.tenantId),
+          ].filter(
+            (id): id is Uuid => id !== null && id !== command.landlordId,
+          ),
+        ),
+      ];
       for (const member of members) {
         member.leave(command.completedOn, true);
       }
@@ -82,12 +96,30 @@ export class ContractCheckoutCompleteCommandHandler implements ICommandHandler<
       await this.contractRepository.save(contract, context);
       await this.memberRepository.saveMany(members, context);
       await this.roomRepository.save(room, context);
+      const events = [
+        ...contract.pullDomainEvents(),
+        ...members.flatMap((member) => member.pullDomainEvents()),
+        ...room.pullDomainEvents(),
+      ];
+      if (recipientUserIds.length > 0) {
+        const snapshot = await this.notificationSnapshots.create(
+          contract,
+          context,
+        );
+        events.push(
+          new ContractLifecycleNotificationRequestedEvent(
+            contract.id,
+            recipientUserIds,
+            {
+              messageKey: 'contract.checked_out',
+              ...snapshot,
+              endDate: contract.endDate,
+            },
+          ),
+        );
+      }
       await this.outboxRepository.append(
-        [
-          ...contract.pullDomainEvents(),
-          ...members.flatMap((member) => member.pullDomainEvents()),
-          ...room.pullDomainEvents(),
-        ].map((event) => OutboxMessage.fromDomainEvent(event)),
+        events.map((event) => OutboxMessage.fromDomainEvent(event)),
         context,
       );
       return contract;

@@ -22,6 +22,8 @@ import { MediaLookupPort } from '../../ports/media-lookup.port';
 import { ContractActivateCommand } from './contract-activate.command';
 import { TenantUserProjectionPort } from '../../ports/tenant-user-projection.port';
 import { TenantPhone } from '../../../domain/value-objects/tenant-phone.vo';
+import { ContractLifecycleNotificationRequestedEvent } from '../../../domain/events/contract-lifecycle-notification-requested.event';
+import { ContractMemberNotificationSnapshotService } from '../../services/contract-member-notification-snapshot.service';
 
 @CommandHandler(ContractActivateCommand)
 export class ContractActivateCommandHandler implements ICommandHandler<
@@ -43,6 +45,7 @@ export class ContractActivateCommandHandler implements ICommandHandler<
     private readonly mediaLookup: MediaLookupPort,
     @Inject(CONTRACT_DI_TOKEN.TENANT_USER_PROJECTION)
     private readonly tenantUsers: TenantUserProjectionPort,
+    private readonly notificationSnapshots: ContractMemberNotificationSnapshotService,
   ) {}
 
   async execute(command: ContractActivateCommand): Promise<ContractEntity> {
@@ -137,12 +140,33 @@ export class ContractActivateCommandHandler implements ICommandHandler<
 
       await this.contractRepository.save(contract, context);
       await this.roomRepository.save(room, context);
+      const events = [
+        ...contract.pullDomainEvents(),
+        ...representative.pullDomainEvents(),
+        ...room.pullDomainEvents(),
+      ];
+      const recipientUserIds = [...new Set(tenantUserIds)].filter(
+        (id) => id !== command.landlordId,
+      );
+      if (recipientUserIds.length > 0) {
+        const snapshot = await this.notificationSnapshots.create(
+          contract,
+          context,
+        );
+        events.push(
+          new ContractLifecycleNotificationRequestedEvent(
+            contract.id,
+            recipientUserIds,
+            {
+              messageKey: 'contract.activated',
+              ...snapshot,
+              startDate: contract.startDate,
+            },
+          ),
+        );
+      }
       await this.outboxRepository.append(
-        [
-          ...contract.pullDomainEvents(),
-          ...representative.pullDomainEvents(),
-          ...room.pullDomainEvents(),
-        ].map((event) => OutboxMessage.fromDomainEvent(event)),
+        events.map((event) => OutboxMessage.fromDomainEvent(event)),
         context,
       );
       return contract;
