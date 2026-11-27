@@ -5,13 +5,6 @@ import { ContractTenantGetByIdQueryHandler } from './application/queries/contrac
 import { TypeOrmContractTenantReadQuery } from './infrastructure/persistence/contract-tenant-read.query';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CqrsModule } from '@nestjs/cqrs';
-import { ContractLockDecisionCommandHandler } from './application/commands/contract-lock-decision/contract-lock-decision.command.handler';
-import { IdentityLandlordLockEvidenceReader } from './infrastructure/users/identity-landlord-lock-evidence.reader';
-import { LANDLORD_LOCK_GRACE_PERIOD_MS } from './domain/constants/landlord-lock-grace.constant';
-import { LandlordLockGraceScanCommandHandler } from './application/commands/landlord-lock-grace-scan/landlord-lock-grace-scan.command.handler';
-import { LandlordLockGraceScheduler } from './infrastructure/scheduler/landlord-lock-grace.scheduler';
-import { LandlordLockCycleTypeormEntity } from './infrastructure/persistence/landlord-lock-cycle.typeorm-entity';
-import { TypeOrmLandlordLockCycleRepository } from './infrastructure/persistence/landlord-lock-cycle.repository';
 import { InternalHttpModule } from 'shared/infrastructure/http/internal-http.module';
 import { OutboxModule } from 'modules/outbox/outbox.module';
 import { InboxModule } from 'modules/inbox/inbox.module';
@@ -56,12 +49,9 @@ import { ContractSettlementAdapter } from './infrastructure/persistence/contract
 import { RoomHubListQueryHandler } from './application/queries/room-hub-list/room-hub-list.query.handler';
 import { RoomHubController } from './presentation/http/controllers/room-hub.controller';
 import { TypeOrmRoomHubPageQuery } from './infrastructure/persistence/room-hub-page-query';
-import { ContractNotificationSnapshotService } from './application/services/contract-notification-snapshot.service';
 import { ContractMemberNotificationSnapshotService } from './application/services/contract-member-notification-snapshot.service';
 
 const commandHandlers = [
-  ContractLockDecisionCommandHandler,
-  LandlordLockGraceScanCommandHandler,
   ContractTemplateApplyCommandHandler,
   ContractCheckoutCompleteCommandHandler,
   ContractMemberAddCommandHandler,
@@ -89,7 +79,6 @@ const queryHandlers = [
   imports: [
     CqrsModule,
     TypeOrmModule.forFeature([
-      LandlordLockCycleTypeormEntity,
       TenantUserProjectionTypeormEntity,
       ContractMemberTypeormEntity,
       ContractTypeormEntity,
@@ -111,32 +100,14 @@ const queryHandlers = [
     ContractMemberController,
   ],
   providers: [
-    ContractNotificationSnapshotService,
     ContractMemberNotificationSnapshotService,
     {
       provide: CONTRACT_DI_TOKEN.TENANT_READ,
       useClass: TypeOrmContractTenantReadQuery,
     },
     {
-      provide: CONTRACT_DI_TOKEN.LANDLORD_LOCK_EVIDENCE,
-      useClass: IdentityLandlordLockEvidenceReader,
-    },
-    {
       provide: CONTRACT_DI_TOKEN.ROOM_HUB_PAGE_QUERY,
       useClass: TypeOrmRoomHubPageQuery,
-    },
-    LandlordLockGraceScheduler,
-    {
-      provide: CONTRACT_DI_TOKEN.LANDLORD_LOCK_CYCLE,
-      useClass: TypeOrmLandlordLockCycleRepository,
-    },
-    {
-      provide: CONTRACT_DI_TOKEN.LANDLORD_LOCK_CYCLE_DUE_QUERY,
-      useExisting: CONTRACT_DI_TOKEN.LANDLORD_LOCK_CYCLE,
-    },
-    {
-      provide: CONTRACT_DI_TOKEN.LANDLORD_LOCK_GRACE_PERIOD_MS,
-      useValue: LANDLORD_LOCK_GRACE_PERIOD_MS,
     },
     IdentityLifecycleSubscriber,
     {

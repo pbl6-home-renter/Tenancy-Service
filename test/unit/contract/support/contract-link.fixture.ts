@@ -1,3 +1,4 @@
+import { ContractProps } from 'modules/contract/domain/entities/contract.props';
 import { ContractEntity } from 'modules/contract/domain/entities/contract.entity';
 import { ContractMember } from 'modules/contract/domain/entities/contract-member.entity';
 import { ContractStatus } from 'modules/contract/domain/enums/contract-status.enum';
@@ -9,6 +10,7 @@ import { OutboxMessage } from 'modules/outbox/domain/entities/outbox-message.ent
 export function createContract(
   tenantId: Uuid | null = null,
   landlordId = generateUuid(),
+  overrides: Partial<ContractProps> = {},
 ) {
   return ContractEntity.reconstitute({
     id: generateUuid(),
@@ -28,6 +30,7 @@ export function createContract(
     createdAt: new Date('2026-01-01'),
     updatedAt: new Date('2026-01-01'),
     isDeleted: false,
+    ...overrides,
   });
 }
 

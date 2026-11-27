@@ -125,7 +125,7 @@ describePostgres('landlord tenant SQL against PostgreSQL', () => {
     expect((await list('history')).data[0].contractMemberId).toBe(old);
   });
 
-  it.each(['suspended', 'terminated'])(
+  it.each(['active', 'terminated'])(
     'keeps %s occupancy until handover and then moves the group to history',
     async (status) => {
       const contract = await fixture.contract({

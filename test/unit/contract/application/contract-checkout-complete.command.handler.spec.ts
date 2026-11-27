@@ -3,6 +3,7 @@ import { ContractCheckoutCompleteCommand } from 'modules/contract/application/co
 import { ContractCheckoutCompleteCommandHandler } from 'modules/contract/application/commands/contract-checkout-complete/contract-checkout-complete.command.handler';
 import { ContractMemberNotificationSnapshotService } from 'modules/contract/application/services/contract-member-notification-snapshot.service';
 import { ContractNotificationCodeConstant } from 'modules/contract/domain/constants/contract-notification-code.constant';
+import { ContractStatus } from 'modules/contract/domain/enums/contract-status.enum';
 import { ContractEntity } from 'modules/contract/domain/entities/contract.entity';
 import { ContractMemberRepository } from 'modules/contract/domain/repositories/contract-member.repository';
 import { ContractRepository } from 'modules/contract/domain/repositories/contract.repository';
@@ -18,11 +19,16 @@ import {
 
 function setup(lockHandover = false, tenantId: Uuid | null = generateUuid()) {
   const deps = createLinkDependencies();
-  const contract = createContract(tenantId);
-  if (lockHandover) {
-    contract.suspend();
-    contract.terminateAfterLandlordLock(generateUuid());
-  }
+  const contract = createContract(
+    tenantId,
+    generateUuid(),
+    lockHandover
+      ? {
+          status: ContractStatus.TERMINATED,
+          lockTerminationCycleId: generateUuid(),
+        }
+      : {},
+  );
   const memberId = generateUuid();
   const activeMembers = [
     createMember(contract.id, tenantId),
@@ -310,7 +316,7 @@ describe('ContractCheckoutCompleteCommandHandler notification (P12-07)', () => {
       if (failure === 'unsettled')
         s.settlement.isPeriodSettled.mockResolvedValue(false);
       if (failure === 'invalid-date') completedOn = new Date('2025-12-31');
-      if (failure === 'invalid-state') s.contract.suspend();
+      if (failure === 'invalid-state') s.contract.terminate(completedOn);
       await expect(
         s.handler.execute(
           new ContractCheckoutCompleteCommand(
