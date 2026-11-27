@@ -1,0 +1,6 @@
+export class BuildingNotificationCodeConstant {
+  static readonly BUILDING_APPROVED_TITLE = 'BUILDING_APPROVED_TITLE';
+  static readonly BUILDING_APPROVED_BODY = 'BUILDING_APPROVED_BODY';
+  static readonly BUILDING_REJECTED_TITLE = 'BUILDING_REJECTED_TITLE';
+  static readonly BUILDING_REJECTED_BODY = 'BUILDING_REJECTED_BODY';
+}
