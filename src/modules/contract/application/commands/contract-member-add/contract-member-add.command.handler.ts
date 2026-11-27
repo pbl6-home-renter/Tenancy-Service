@@ -18,6 +18,8 @@ import { ValidationException } from 'shared/domain/exceptions/validation.excepti
 import { ContractNotActiveException } from '../../../domain/exceptions/contract-not-active.exception';
 import { ContractStatus } from '../../../domain/enums/contract-status.enum';
 import { ContractMemberAddCommand } from './contract-member-add.command';
+import { ContractMemberNotificationRequestedEvent } from '../../../domain/events/contract-member-notification-requested.event';
+import { ContractMemberNotificationSnapshotService } from '../../services/contract-member-notification-snapshot.service';
 
 @CommandHandler(ContractMemberAddCommand)
 export class ContractMemberAddCommandHandler implements ICommandHandler<
@@ -34,6 +36,7 @@ export class ContractMemberAddCommandHandler implements ICommandHandler<
     @Inject(UNIT_OF_WORK_DI_TOKEN) private readonly unitOfWork: IUnitOfWork,
     @Inject(OUTBOX_DI_TOKEN.REPOSITORY)
     private readonly outbox: OutboxRepository,
+    private readonly notificationSnapshots: ContractMemberNotificationSnapshotService,
   ) {}
 
   execute(command: ContractMemberAddCommand): Promise<ContractMember> {
@@ -83,10 +86,25 @@ export class ContractMemberAddCommandHandler implements ICommandHandler<
         throw new MemberAlreadyExistsException();
       }
       await this.members.save(member, context);
+      const events = member.pullDomainEvents();
+      if (member.tenantId !== null && member.tenantId !== command.landlordId) {
+        const snapshot = await this.notificationSnapshots.create(
+          contract,
+          context,
+        );
+        events.push(
+          new ContractMemberNotificationRequestedEvent(
+            member.id,
+            [member.tenantId],
+            {
+              messageKey: 'contract.member_added',
+              ...snapshot,
+            },
+          ),
+        );
+      }
       await this.outbox.append(
-        member
-          .pullDomainEvents()
-          .map((event) => OutboxMessage.fromDomainEvent(event)),
+        events.map((event) => OutboxMessage.fromDomainEvent(event)),
         context,
       );
       return member;

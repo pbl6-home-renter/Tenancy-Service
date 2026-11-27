@@ -5,6 +5,7 @@ import { ContractMemberRepository } from 'modules/contract/domain/repositories/c
 import { MemberAlreadyExistsException } from 'modules/contract/domain/exceptions/member-already-exists.exception';
 import { OutboxRepository } from 'modules/outbox/domain/repositories/outbox.repository';
 import { TenantPhone } from 'modules/contract/domain/value-objects/tenant-phone.vo';
+import { ContractMemberNotificationSnapshotService } from 'modules/contract/application/services/contract-member-notification-snapshot.service';
 import { generateUuid } from 'shared/domain/value-objects/uuid.vo';
 import {
   createContract,
@@ -19,12 +20,21 @@ function setup() {
     existsActiveDuplicate: jest.fn(async () => false),
     save: jest.fn(async () => undefined),
   };
+  const snapshot = {
+    create: jest.fn(async () => ({
+      contractId: contract.id,
+      contractCode: `HD-${contract.id.slice(0, 6)}`,
+      roomName: 'Room A',
+      buildingName: 'Building A',
+    })),
+  };
   const handler = new ContractMemberAddCommandHandler(
     deps.projection,
     contracts as unknown as ContractRepository,
     members as unknown as ContractMemberRepository,
     deps.unitOfWork,
     deps.outbox as unknown as OutboxRepository,
+    snapshot as unknown as ContractMemberNotificationSnapshotService,
   );
   const command = new ContractMemberAddCommand(contract.landlordId, {
     contractId: contract.id,
@@ -33,7 +43,7 @@ function setup() {
     tenantPhone: '+84912345678',
     joinedAt: new Date('2026-02-01'),
   });
-  return { ...deps, contract, members, handler, command };
+  return { ...deps, contract, members, snapshot, handler, command };
 }
 
 describe('ContractMemberAddCommandHandler tenant linking (P9-02)', () => {
@@ -64,6 +74,25 @@ describe('ContractMemberAddCommandHandler tenant linking (P9-02)', () => {
             joinedAt: '2026-02-01',
           }),
         }),
+        expect.objectContaining({
+          eventType: 'notification.requested',
+          payload: {
+            sourceService: 'tenancy',
+            recipientUserIds: [tenantId],
+            notification: {
+              type: 'system',
+              title: 'CONTRACT_MEMBER_ADDED_TITLE',
+              body: 'CONTRACT_MEMBER_ADDED_BODY',
+              data: {
+                messageKey: 'contract.member_added',
+                contractId: s.contract.id,
+                contractCode: `HD-${s.contract.id.slice(0, 6)}`,
+                roomName: 'Room A',
+                buildingName: 'Building A',
+              },
+            },
+          },
+        }),
       ],
       s.context,
     );
@@ -81,6 +110,7 @@ describe('ContractMemberAddCommandHandler tenant linking (P9-02)', () => {
       ],
       s.context,
     );
+    expect(s.snapshot.create).not.toHaveBeenCalled();
   });
 
   it('preserves an explicit tenant ID without resolving it to a different account', async () => {

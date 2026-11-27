@@ -236,6 +236,24 @@ describe('IdentityLifecycleSubscriber tenant projection and linking (P9-02)', ()
               joinedAt: '2026-01-01',
             },
           }),
+          expect.objectContaining({
+            eventType: 'notification.requested',
+            payload: {
+              sourceService: 'tenancy',
+              recipientUserIds: [s.contract.landlordId],
+              notification: {
+                type: 'system',
+                title: 'CONTRACT_MEMBER_LINKED_TITLE',
+                body: 'CONTRACT_MEMBER_LINKED_BODY',
+                data: {
+                  messageKey: 'contract.member_linked',
+                  contractId: s.contract.id,
+                  contractCode: `HD-${s.contract.id.slice(0, 6)}`,
+                  memberName: 'Tenant',
+                },
+              },
+            },
+          }),
         ],
         s.context,
       );

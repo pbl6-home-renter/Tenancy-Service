@@ -16,6 +16,7 @@ import { ContractNotActiveException } from '../../../domain/exceptions/contract-
 import { LeftDateInvalidException } from '../../../domain/exceptions/left-date-invalid.exception';
 import { ContractStatus } from '../../../domain/enums/contract-status.enum';
 import { ContractMemberLeaveCommand } from './contract-member-leave.command';
+import { ContractMemberNotificationRequestedEvent } from '../../../domain/events/contract-member-notification-requested.event';
 
 @CommandHandler(ContractMemberLeaveCommand)
 export class ContractMemberLeaveCommandHandler implements ICommandHandler<
@@ -64,10 +65,40 @@ export class ContractMemberLeaveCommandHandler implements ICommandHandler<
         throw new LeftDateInvalidException();
       contractMember.leave(leftOn);
       await this.members.save(contractMember, context);
+      const events = contractMember.pullDomainEvents();
+      const remaining = await this.members.findActiveByContract(
+        contract.id,
+        context,
+      );
+      const recipientUserIds = [
+        ...new Set(
+          remaining
+            .filter(
+              (member) =>
+                member.id !== contractMember.id && member.tenantId !== null,
+            )
+            .map((member) => member.tenantId!),
+        ),
+      ].filter(
+        (id) => id !== command.landlordId && id !== contractMember.tenantId,
+      );
+      if (recipientUserIds.length > 0) {
+        events.push(
+          new ContractMemberNotificationRequestedEvent(
+            contractMember.id,
+            recipientUserIds,
+            {
+              messageKey: 'contract.member_left',
+              contractId: contract.id,
+              contractCode: `HD-${contract.id.slice(0, 6)}`,
+              memberName: contractMember.tenantName,
+              leftOn: leftOn.toISOString().slice(0, 10),
+            },
+          ),
+        );
+      }
       await this.outbox.append(
-        contractMember
-          .pullDomainEvents()
-          .map((event) => OutboxMessage.fromDomainEvent(event)),
+        events.map((event) => OutboxMessage.fromDomainEvent(event)),
         context,
       );
       return contractMember;
