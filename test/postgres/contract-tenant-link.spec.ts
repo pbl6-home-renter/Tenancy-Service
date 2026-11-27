@@ -10,12 +10,14 @@ import { TypeOrmContractReadRepository } from 'modules/contract/infrastructure/p
 import { TypeOrmContractMemberRepository } from 'modules/contract/infrastructure/persistence/contract-member.repository';
 import { TypeOrmTenantUserProjectionRepository } from 'modules/contract/infrastructure/persistence/tenant-user-projection.repository';
 import { TypeOrmRoomRepository } from 'modules/room/infrastructure/persistence/room.repository';
+import { TypeOrmBuildingRepository } from 'modules/building/infrastructure/persistence/building.repository';
 import { TypeOrmOutboxRepository } from 'modules/outbox/infrastructure/persistence/outbox.repository';
 import { TypeOrmUnitOfWork } from 'shared/infrastructure/database/transaction/typeorm-unit-of-work';
 import { ContractCreateCommandHandler } from 'modules/contract/application/commands/contract-create/contract-create.command.handler';
 import { ContractCreateCommand } from 'modules/contract/application/commands/contract-create/contract-create.command';
 import { ContractActivateCommandHandler } from 'modules/contract/application/commands/contract-activate/contract-activate.command.handler';
 import { ContractActivateCommand } from 'modules/contract/application/commands/contract-activate/contract-activate.command';
+import { ContractMemberNotificationSnapshotService } from 'modules/contract/application/services/contract-member-notification-snapshot.service';
 import { TenantPhone } from 'modules/contract/domain/value-objects/tenant-phone.vo';
 import { ContractStatus } from 'modules/contract/domain/enums/contract-status.enum';
 import { generateUuid } from 'shared/domain/value-objects/uuid.vo';
@@ -31,6 +33,7 @@ describe('Contract tenant linking on PostgreSQL', () => {
   let members: TypeOrmContractMemberRepository;
   let projection: TypeOrmTenantUserProjectionRepository;
   let rooms: TypeOrmRoomRepository;
+  let notificationSnapshots: ContractMemberNotificationSnapshotService;
   let outbox: TypeOrmOutboxRepository;
   let uow: TypeOrmUnitOfWork;
 
@@ -55,6 +58,12 @@ describe('Contract tenant linking on PostgreSQL', () => {
     );
     rooms = new TypeOrmRoomRepository(
       db.source.getRepository(RoomTypeormEntity),
+    );
+    notificationSnapshots = new ContractMemberNotificationSnapshotService(
+      rooms,
+      new TypeOrmBuildingRepository(
+        db.source.getRepository(BuildingTypeormEntity),
+      ),
     );
     outbox = new TypeOrmOutboxRepository(
       db.source.getRepository(OutboxTypeormEntity),
@@ -123,6 +132,7 @@ describe('Contract tenant linking on PostgreSQL', () => {
         ],
       },
       projection,
+      notificationSnapshots,
     );
     return handler.execute(
       new ContractActivateCommand(contract.id, contract.landlordId, [mediaId]),
