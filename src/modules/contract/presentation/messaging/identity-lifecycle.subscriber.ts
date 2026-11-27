@@ -17,6 +17,7 @@ import { ConsumerRegistry } from 'shared/infrastructure/messaging/rabbitmq/consu
 import { CONTRACT_DI_TOKEN } from '../../contract.di-token';
 import { TenantUserProjectionPort } from '../../application/ports/tenant-user-projection.port';
 import { ContractNotificationSnapshotService } from '../../application/services/contract-notification-snapshot.service';
+import { ContractMemberNotificationRequestedEvent } from '../../domain/events/contract-member-notification-requested.event';
 import { ContractNotificationSnapshot } from '../../domain/events/contract-notification-snapshot';
 import { LandlordLockCycleEntity } from '../../domain/entities/landlord-lock-cycle.entity';
 import { ContractStatus } from '../../domain/enums/contract-status.enum';
@@ -253,12 +254,28 @@ export class IdentityLifecycleSubscriber {
       userId,
       context,
     );
+    const contractById = new Map(
+      contracts.map((contract) => [contract.id, contract]),
+    );
+    const events = linkedMembers.flatMap((member) => member.pullDomainEvents());
+    for (const member of linkedMembers) {
+      const contract = contractById.get(member.contractId);
+      if (!contract || contract.landlordId === userId) continue;
+      events.push(
+        new ContractMemberNotificationRequestedEvent(
+          member.id,
+          [contract.landlordId],
+          {
+            messageKey: 'contract.member_linked',
+            contractId: contract.id,
+            contractCode: `HD-${contract.id.slice(0, 6)}`,
+            memberName: member.tenantName!,
+          },
+        ),
+      );
+    }
     await this.outbox.append(
-      linkedMembers.flatMap((member) =>
-        member
-          .pullDomainEvents()
-          .map((domainEvent) => OutboxMessage.fromDomainEvent(domainEvent)),
-      ),
+      events.map((domainEvent) => OutboxMessage.fromDomainEvent(domainEvent)),
       context,
     );
   }
