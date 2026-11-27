@@ -11,7 +11,10 @@ import {
 import { AuthenticatedUser } from 'shared/application/auth/authenticated-user';
 import { PaginatedResult } from 'shared/application/pagination/paginated-result';
 import { UserRole } from 'shared/domain/enums/user-role.enum';
-import { Roles } from 'shared/presentation/decorators/auth/access-control.decorators';
+import {
+  AllowLocked,
+  Roles,
+} from 'shared/presentation/decorators/auth/access-control.decorators';
 import { CurrentUser } from 'shared/presentation/decorators/auth/current-user.decorator';
 import { ResponseCode } from 'shared/presentation/decorators/response-code.decorator';
 import { PaginatedResponseDto } from 'shared/presentation/pagination/paginated.response.dto';
@@ -30,6 +33,7 @@ export class RoomHubController {
 
   @Get('me/room-hub')
   @Roles(UserRole.TENANT)
+  @AllowLocked(UserRole.TENANT)
   @HttpCode(HttpStatus.OK)
   @ResponseCode(ROOM_HUB_RESPONSE_CODE.FETCHED)
   @ApiOperation({

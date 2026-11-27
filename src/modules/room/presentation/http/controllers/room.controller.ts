@@ -25,7 +25,10 @@ import { AuthenticatedUser } from 'shared/application/auth/authenticated-user';
 import { Uuid } from 'shared/domain/value-objects/uuid.vo';
 import { UserRole } from 'shared/domain/enums/user-role.enum';
 import { CurrentUser } from 'shared/presentation/decorators/auth/current-user.decorator';
-import { Roles } from 'shared/presentation/decorators/auth/access-control.decorators';
+import {
+  AllowLocked,
+  Roles,
+} from 'shared/presentation/decorators/auth/access-control.decorators';
 import { ApiSuccessResponse } from 'shared/presentation/decorators/api-success-response.decorator';
 import { ResponseCode } from 'shared/presentation/decorators/response-code.decorator';
 import { PaginatedResponseDto } from 'shared/presentation/pagination/paginated.response.dto';
@@ -135,6 +138,7 @@ export class RoomController {
 
   @Get('me/rooms')
   @Roles(UserRole.LANDLORD)
+  @AllowLocked(UserRole.LANDLORD)
   @HttpCode(HttpStatus.OK)
   @ResponseCode(RoomResponseCodeConstant.ROOMS_MY_FETCHED)
   @ApiOperation({ operationId: 'getMeRooms', summary: 'List my rooms' })
