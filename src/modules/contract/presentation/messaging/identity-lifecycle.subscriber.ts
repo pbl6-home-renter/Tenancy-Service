@@ -1,3 +1,7 @@
+import {
+  LANDLORD_LOCK,
+  LandlordLockPort,
+} from 'modules/landlord-lock/application/ports/landlord-lock.port';
 import { Inject, Injectable } from '@nestjs/common';
 import { RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
 import { InboxRepository } from 'modules/inbox/application/ports/inbox.repository';
@@ -50,6 +54,8 @@ export class IdentityLifecycleSubscriber {
     private readonly inboxRepository: InboxRepository,
     @Inject(UNIT_OF_WORK_DI_TOKEN)
     private readonly unitOfWork: IUnitOfWork,
+    @Inject(LANDLORD_LOCK)
+    private readonly landlordLocks: LandlordLockPort,
   ) {}
 
   @RabbitSubscribe({
@@ -70,7 +76,14 @@ export class IdentityLifecycleSubscriber {
     this.assertUserLifecycleEvent(event);
     await this.handleOnce(event, (context) => {
       if (event.eventType === USER_UNLOCKED_EVENT) {
-        if (event.payload.role === UserRole.LANDLORD) return Promise.resolve();
+        if (event.payload.role === UserRole.LANDLORD) {
+          return this.landlordLocks.setState(
+            event.payload.userId,
+            new Date(event.payload.lockedAt ?? event.occurredAt),
+            false,
+            context,
+          );
+        }
         const { role, phone } = event.payload;
         // Older producers did not include the tenant lookup snapshot.
         if (role === undefined || phone === undefined) return Promise.resolve();
@@ -80,7 +93,14 @@ export class IdentityLifecycleSubscriber {
         );
       }
       if (event.eventType === USER_LOCKED_EVENT) {
-        if (event.payload.role === UserRole.LANDLORD) return Promise.resolve();
+        if (event.payload.role === UserRole.LANDLORD) {
+          return this.landlordLocks.setState(
+            event.payload.userId,
+            new Date(event.payload.lockedAt),
+            true,
+            context,
+          );
+        }
         return this.tenantUsers.delete(event.payload.userId, context);
       }
       if (event.eventType === USER_DELETED_EVENT) {
@@ -196,6 +216,12 @@ export class IdentityLifecycleSubscriber {
       throw new ValidationException('Invalid user lifecycle integration event');
     }
     if (event.eventType === USER_UNLOCKED_EVENT) {
+      if (
+        event.payload.role === UserRole.LANDLORD &&
+        (typeof event.occurredAt !== 'string' ||
+          !Number.isFinite(Date.parse(event.occurredAt)))
+      )
+        throw new ValidationException('Invalid landlord unlock timestamp');
       if (
         event.payload.lockedAt !== undefined &&
         event.payload.lockedAt !== null &&

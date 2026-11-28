@@ -18,6 +18,7 @@ export interface InvoiceMyListFilter {
 }
 
 export interface InvoiceMyListView {
+  landlordLocked: boolean;
   id: Uuid;
   code: string;
   contractId: Uuid;
@@ -43,6 +44,7 @@ export interface InvoiceListView {
 }
 
 export interface InvoiceDetailView {
+  landlordLocked?: boolean;
   invoice: InvoiceEntity;
   landlordId: Uuid;
   roomId: Uuid;

@@ -1,3 +1,4 @@
+import { landlordLockedSql } from 'modules/landlord-lock/infrastructure/persistence/landlord-locked.sql';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, SelectQueryBuilder } from 'typeorm';
@@ -141,6 +142,7 @@ export class TypeOrmInvoiceReadAdapter implements InvoiceReadPort {
       .select('invoice.id', 'id')
       .addSelect('invoice.code', 'code')
       .addSelect('invoice.contractId', 'contractId')
+      .addSelect(landlordLockedSql('contract'), 'landlordLocked')
       .addSelect('room.name', 'roomName')
       .addSelect('invoice.period', 'period')
       .addSelect('invoice.totalAmount', 'totalAmount')
@@ -169,6 +171,7 @@ export class TypeOrmInvoiceReadAdapter implements InvoiceReadPort {
     tenantId: Uuid,
   ): Promise<InvoiceDetailView | null> {
     const query = this.detailQuery()
+      .addSelect(landlordLockedSql('contract'), 'landlordLocked')
       .andWhere('invoice.id = :id', { id })
       .andWhere('invoice.status = :issuedStatus', {
         issuedStatus: InvoiceStatus.ISSUED,

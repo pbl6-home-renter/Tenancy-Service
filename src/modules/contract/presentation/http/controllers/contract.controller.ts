@@ -1,3 +1,4 @@
+import { LandlordIsLockedQuery } from 'modules/landlord-lock/application/queries/landlord-is-locked.query';
 import {
   Body,
   Controller,
@@ -134,7 +135,14 @@ export class ContractController {
       ContractGetByIdQuery,
       ContractEntity
     >(new ContractGetByIdQuery(contractId, user));
-    return ContractDetailResponseDto.fromDomain(contract);
+    const response = ContractDetailResponseDto.fromDomain(contract);
+    if (user.role === UserRole.TENANT) {
+      response.landlordLocked = await this.queryBus.execute<
+        LandlordIsLockedQuery,
+        boolean
+      >(new LandlordIsLockedQuery(contract.landlordId));
+    }
+    return response;
   }
 
   @Post(':contractId/generate-draft-document')

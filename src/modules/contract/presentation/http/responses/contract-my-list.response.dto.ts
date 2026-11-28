@@ -4,6 +4,7 @@ import { ContractStatus } from '../../../domain/enums/contract-status.enum';
 import { ContractMyListResult } from '../../../domain/repositories/contract-read.repository';
 
 export class ContractMyListResponseDto {
+  @ApiProperty({ type: Boolean }) landlordLocked: boolean;
   @ApiProperty({ type: String, format: 'uuid' })
   id: Uuid;
 
@@ -39,6 +40,7 @@ export class ContractMyListResponseDto {
   ): ContractMyListResponseDto {
     const response = new ContractMyListResponseDto();
     response.id = contract.id;
+    response.landlordLocked = contract.landlordLocked;
     response.contractCode = `HD-${contract.id.slice(0, 6)}`;
     response.roomId = contract.roomId;
     response.roomName = contract.roomName;

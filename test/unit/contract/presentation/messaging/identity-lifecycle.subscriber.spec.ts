@@ -36,6 +36,10 @@ function setup() {
     linkTenantMany: jest.fn(async () => undefined),
   };
   const inbox = { recordIfNew: jest.fn(async () => true) };
+  const landlordLocks = {
+    setState: jest.fn(async () => undefined),
+    isLocked: jest.fn(async () => false),
+  };
   const handler = new IdentityLifecycleSubscriber(
     deps.projection,
     contracts as unknown as ContractRepository,
@@ -43,6 +47,7 @@ function setup() {
     deps.outbox as unknown as OutboxRepository,
     inbox as unknown as InboxRepository,
     deps.unitOfWork,
+    landlordLocks,
   );
   const userId = generateUuid();
   function event(
@@ -73,6 +78,7 @@ function setup() {
     member,
     inbox,
     handler,
+    landlordLocks,
     userId,
     event,
   };
@@ -104,6 +110,13 @@ describe('IdentityLifecycleSubscriber tenant projection and linking (P9-02)', ()
         s.context,
       );
       expect(s.unitOfWork.run).toHaveBeenCalledTimes(3);
+      expect(s.landlordLocks.setState).toHaveBeenCalledTimes(2);
+      expect(s.landlordLocks.setState).toHaveBeenCalledWith(
+        s.userId,
+        new Date('2025-01-01T00:00:00.000Z'),
+        eventType === 'user.locked',
+        s.context,
+      );
       expect(s.contract.status).toBe(originalStatus);
       expect(s.contracts.save).not.toHaveBeenCalled();
       expect(s.contracts.findUnlinkedByPhoneForUpdate).not.toHaveBeenCalled();
@@ -124,6 +137,7 @@ describe('IdentityLifecycleSubscriber tenant projection and linking (P9-02)', ()
       }),
     );
     expect(s.projection.delete).toHaveBeenCalledWith(s.userId, s.context);
+    expect(s.landlordLocks.setState).not.toHaveBeenCalled();
     expect(s.contract.status).toBe('active');
     expect(s.contracts.save).not.toHaveBeenCalled();
     expect(s.contracts.findUnlinkedByPhoneForUpdate).not.toHaveBeenCalled();

@@ -1,3 +1,6 @@
+import { ContractGetByIdQuery } from 'modules/contract/application/queries/contract-get-by-id/contract-get-by-id.query';
+import { LandlordIsLockedQuery } from 'modules/landlord-lock/application/queries/landlord-is-locked.query';
+import { createContract } from '../unit/contract/support/contract-link.fixture';
 import 'reflect-metadata';
 import assert from 'node:assert/strict';
 import { UnauthorizedException } from '@nestjs/common';
@@ -20,6 +23,9 @@ async function main() {
     role: UserRole.LANDLORD,
     status: UserStatus.ACTIVE,
   };
+  let landlordLocked = true;
+  const contract = createContract(user.id);
+  let lockReads = 0;
   let verified = false,
     commands = 0;
   const verifier = {
@@ -43,18 +49,26 @@ async function main() {
       {
         provide: QueryBus,
         useValue: {
-          execute: async () => ({
-            data: [],
-            pagination: {
-              type: 'offset',
-              pageNo: 1,
-              pageSize: 20,
-              totalItems: 0,
-              totalPages: 0,
-              hasNextPage: false,
-              hasPreviousPage: false,
-            },
-          }),
+          execute: async (query: unknown) => {
+            if (query instanceof ContractGetByIdQuery) return contract;
+            if (query instanceof LandlordIsLockedQuery) {
+              assert.equal(query.landlordId, contract.landlordId);
+              lockReads++;
+              return landlordLocked;
+            }
+            return {
+              data: [],
+              pagination: {
+                type: 'offset',
+                pageNo: 1,
+                pageSize: 20,
+                totalItems: 0,
+                totalPages: 0,
+                hasNextPage: false,
+                hasPreviousPage: false,
+              },
+            };
+          },
         },
       },
     ],
@@ -82,7 +96,30 @@ async function main() {
     );
     assert.equal(response.status, 404);
     assert.equal(commands, 0);
+    const ownerDetail = await fetch(`${url}/contracts/${contract.id}`, {
+      headers,
+    });
+    assert.equal(ownerDetail.status, 200);
+    assert.equal(
+      Object.hasOwn(await ownerDetail.json(), 'landlordLocked'),
+      false,
+    );
+    assert.equal(lockReads, 0);
+    user.role = UserRole.TENANT;
+    user.status = UserStatus.LOCKED;
+    for (const expected of [true, false]) {
+      landlordLocked = expected;
+      const detail = await fetch(`${url}/contracts/${contract.id}`, {
+        headers,
+      });
+      assert.equal(detail.status, 200);
+      assert.equal((await detail.json()).landlordLocked, expected);
+    }
+    assert.equal(lockReads, 2);
     console.log('Authenticated contract route 200; removed decision route 404');
+    console.log(
+      'Tenant contract detail includes live landlordLocked; owner response unchanged',
+    );
   } finally {
     await app.close();
   }
