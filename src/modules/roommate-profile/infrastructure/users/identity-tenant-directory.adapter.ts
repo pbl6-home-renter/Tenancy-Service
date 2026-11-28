@@ -22,6 +22,21 @@ export class IdentityTenantDirectoryAdapter implements TenantDirectoryPort {
     private readonly client: IInternalHttpClient,
   ) {}
 
+  async isLocked(id: string): Promise<boolean> {
+    const users = await this.client.get<IdentityUser[]>(
+      PeerService.IDENTITY,
+      '/internal/users',
+      { query: { ids: id } },
+    );
+    return users.some(
+      (user) =>
+        user.id.toLowerCase() === id.toLowerCase() &&
+        !user.isDeleted &&
+        user.role === UserRole.TENANT &&
+        user.status === UserStatus.LOCKED,
+    );
+  }
+
   async findActive(
     ids: readonly string[],
   ): Promise<Map<string, TenantSummary>> {

@@ -5,5 +5,6 @@ export interface TenantSummary {
 }
 
 export interface TenantDirectoryPort {
+  isLocked(id: string): Promise<boolean>;
   findActive(ids: readonly string[]): Promise<Map<string, TenantSummary>>;
 }

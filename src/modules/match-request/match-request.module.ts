@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { CqrsModule } from '@nestjs/cqrs';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { TenantUserProjectionReadModule } from 'modules/contract/tenant-user-projection-read.module';
 import { OutboxModule } from 'modules/outbox/outbox.module';
 import { RoommateProfileModule } from 'modules/roommate-profile/roommate-profile.module';
 import { MatchRequestService } from './application/match-request.service';
@@ -17,6 +18,7 @@ import { MatchRequestController } from './presentation/http/controllers/match-re
     CqrsModule,
     TypeOrmModule.forFeature([MatchRequestTypeormEntity]),
     RoommateProfileModule,
+    TenantUserProjectionReadModule,
     OutboxModule,
   ],
   controllers: [MatchRequestController],

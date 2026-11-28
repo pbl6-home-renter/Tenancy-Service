@@ -45,11 +45,16 @@ import {
   MatchRequestResponseDto,
 } from '../responses/match-request.response.dto';
 
-function MatchRequestActionErrors() {
+function MatchRequestActionErrors(checkCounterpart = false) {
   return applyDecorators(
     ApiResponse({ status: 400, description: 'Invalid match request UUID' }),
     ApiResponse({ status: 404, description: 'MATCH_REQUEST_NOT_FOUND' }),
-    ApiResponse({ status: 409, description: 'MATCH_REQUEST_NOT_PENDING' }),
+    ApiResponse({
+      status: 409,
+      description: checkCounterpart
+        ? 'MATCH_REQUEST_NOT_PENDING or MATCH_REQUEST_COUNTERPART_UNAVAILABLE'
+        : 'MATCH_REQUEST_NOT_PENDING',
+    }),
   );
 }
 
@@ -141,7 +146,8 @@ export class MatchRequestController {
   @ApiResponse({ status: 404, description: 'ROOMMATE_PROFILE_NOT_FOUND' })
   @ApiResponse({
     status: 409,
-    description: 'DUPLICATE_MATCH_REQUEST or IDEMPOTENCY_KEY_REUSED',
+    description:
+      'DUPLICATE_MATCH_REQUEST, IDEMPOTENCY_KEY_REUSED or MATCH_REQUEST_COUNTERPART_UNAVAILABLE',
   })
   @ApiResponse({
     status: 422,
@@ -167,7 +173,7 @@ export class MatchRequestController {
     summary: 'Accept a match request',
   })
   @ApiSuccessResponse({ code: Code.ACCEPTED, dataDto: MatchRequestResponseDto })
-  @MatchRequestActionErrors()
+  @MatchRequestActionErrors(true)
   async accept(
     @CurrentUser() user: AuthenticatedUser,
     @Param('matchRequestId', ParseUUIDPipe) id: Uuid,
@@ -183,7 +189,7 @@ export class MatchRequestController {
     summary: 'Reject a match request',
   })
   @ApiSuccessResponse({ code: Code.REJECTED, dataDto: MatchRequestResponseDto })
-  @MatchRequestActionErrors()
+  @MatchRequestActionErrors(true)
   async reject(
     @CurrentUser() user: AuthenticatedUser,
     @Param('matchRequestId', ParseUUIDPipe) id: Uuid,

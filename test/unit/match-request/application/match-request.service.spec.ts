@@ -15,7 +15,9 @@ describe('match request service', () => {
   };
   const pages = { findPage: jest.fn() };
   const profiles = { findDiscoverableByTenantId: jest.fn() };
+  const tenantUsers = { existsByUserId: jest.fn() };
   const tenants = {
+    isLocked: jest.fn(),
     findActive: jest.fn(
       async (ids: string[]) =>
         new Map(
@@ -40,10 +42,13 @@ describe('match request service', () => {
     tenants as never,
     unitOfWork as never,
     outbox as never,
+    tenantUsers,
   );
 
   beforeEach(() => {
     jest.clearAllMocks();
+    tenantUsers.existsByUserId.mockResolvedValue(true);
+    tenants.isLocked.mockResolvedValue(false);
     requests.findByRequestKey.mockResolvedValue(null);
     profiles.findDiscoverableByTenantId.mockResolvedValue(profile);
     requests.insertOrFind.mockImplementation(
@@ -207,6 +212,27 @@ describe('match request service', () => {
     ).rejects.toMatchObject({
       code: 'MATCH_REQUEST_PARTICIPANT_UNAVAILABLE',
     });
+    // The same persisted pending request can be listed again after Identity unlock.
+    pages.findPage.mockResolvedValueOnce({
+      data: [request],
+      pagination: {
+        type: 'offset',
+        pageNo: 1,
+        pageSize: 20,
+        totalItems: 1,
+        totalPages: 1,
+        hasNextPage: false,
+        hasPreviousPage: false,
+      },
+    });
+    const restored = await service.list(requesterId, {
+      pageNo: 1,
+      pageSize: 20,
+    });
+    expect(restored.data[0].request).toBe(request);
+    expect(request.status).toBe(MatchRequestStatus.PENDING);
+    expect(requests.save).not.toHaveBeenCalled();
+    expect(outbox.append).not.toHaveBeenCalled();
   });
 
   it('rejects reuse of an idempotency key for a different target', async () => {
@@ -239,5 +265,133 @@ describe('match request service', () => {
       actorUserId: targetId,
       actorDisplayName: 'Tenant',
     });
+  });
+  it('blocks a new request without projection in its transaction, even when Identity is active', async () => {
+    tenantUsers.existsByUserId.mockResolvedValue(false);
+    await expect(
+      service.create(requesterId, targetId, generateUuid()),
+    ).rejects.toMatchObject({
+      statusCode: 409,
+      code: 'MATCH_REQUEST_COUNTERPART_UNAVAILABLE',
+    });
+    expect(tenantUsers.existsByUserId).toHaveBeenCalledWith(targetId, {
+      kind: 'transaction',
+    });
+    expect(profiles.findDiscoverableByTenantId).not.toHaveBeenCalled();
+    expect(outbox.append).not.toHaveBeenCalled();
+  });
+
+  it('returns 409 for an Identity-locked tenant while its projection event is delayed', async () => {
+    tenants.findActive
+      .mockResolvedValueOnce(
+        new Map([
+          [
+            requesterId.toLowerCase(),
+            {
+              id: requesterId,
+              name: 'Tenant',
+              avatarUrl: null,
+            },
+          ],
+        ]),
+      )
+      .mockResolvedValueOnce(new Map());
+    tenants.isLocked.mockResolvedValueOnce(true);
+    await expect(
+      service.create(requesterId, targetId, generateUuid()),
+    ).rejects.toMatchObject({
+      statusCode: 409,
+      code: 'MATCH_REQUEST_COUNTERPART_UNAVAILABLE',
+    });
+    expect(outbox.append).not.toHaveBeenCalled();
+  });
+
+  it.each([MatchRequestStatus.ACCEPTED, MatchRequestStatus.REJECTED])(
+    'keeps pending unchanged on blocked %s, then permits the same request after unlock',
+    async (next) => {
+      const request = MatchRequestEntity.reconstitute({
+        requesterId,
+        targetId,
+        idempotencyKey: generateUuid(),
+      });
+      requests.findByIdForUpdate.mockResolvedValue(request);
+      tenantUsers.existsByUserId.mockResolvedValueOnce(false);
+      await expect(
+        service.transition(targetId, request.id, next),
+      ).rejects.toMatchObject({
+        statusCode: 409,
+        code: 'MATCH_REQUEST_COUNTERPART_UNAVAILABLE',
+      });
+      expect(request.status).toBe(MatchRequestStatus.PENDING);
+      expect(request.respondedAt).toBeNull();
+      expect(request.pullDomainEvents()).toEqual([]);
+      expect(requests.save).not.toHaveBeenCalled();
+      expect(outbox.append).not.toHaveBeenCalled();
+      expect(tenantUsers.existsByUserId).toHaveBeenCalledWith(requesterId, {
+        kind: 'transaction',
+      });
+      await service.transition(targetId, request.id, next);
+      expect(request.status).toBe(next);
+      expect(profiles.findDiscoverableByTenantId).not.toHaveBeenCalled();
+      expect(requests.save).toHaveBeenCalledTimes(1);
+      expect(outbox.append).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it('checks actor permissions before disclosing counterpart availability', async () => {
+    const request = MatchRequestEntity.reconstitute({
+      requesterId,
+      targetId,
+      idempotencyKey: generateUuid(),
+    });
+    requests.findByIdForUpdate.mockResolvedValue(request);
+    tenantUsers.existsByUserId.mockResolvedValue(false);
+    await expect(
+      service.transition(requesterId, request.id, MatchRequestStatus.ACCEPTED),
+    ).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+    });
+    expect(tenantUsers.existsByUserId).not.toHaveBeenCalled();
+    expect(requests.save).not.toHaveBeenCalled();
+    expect(outbox.append).not.toHaveBeenCalled();
+  });
+
+  it('preserves terminal replay/errors, create replay and withdraw with an unavailable counterpart', async () => {
+    const key = generateUuid();
+    const request = MatchRequestEntity.reconstitute({
+      requesterId,
+      targetId,
+      idempotencyKey: key,
+      status: MatchRequestStatus.ACCEPTED,
+    });
+    requests.findByIdForUpdate.mockResolvedValue(request);
+    requests.findByRequestKey.mockResolvedValue(request);
+    tenantUsers.existsByUserId.mockResolvedValue(false);
+    expect(
+      await service.transition(
+        targetId,
+        request.id,
+        MatchRequestStatus.ACCEPTED,
+      ),
+    ).toBe(request);
+    await expect(
+      service.transition(targetId, request.id, MatchRequestStatus.REJECTED),
+    ).rejects.toMatchObject({ code: 'MATCH_REQUEST_NOT_PENDING' });
+    expect(await service.create(requesterId, targetId, key)).toBe(request);
+    expect(tenantUsers.existsByUserId).not.toHaveBeenCalled();
+    const pending = MatchRequestEntity.reconstitute({
+      requesterId,
+      targetId,
+      idempotencyKey: generateUuid(),
+    });
+    requests.findByIdForUpdate.mockResolvedValue(pending);
+    await service.transition(
+      requesterId,
+      pending.id,
+      MatchRequestStatus.WITHDRAWN,
+    );
+    expect(pending.status).toBe(MatchRequestStatus.WITHDRAWN);
+    expect(tenantUsers.existsByUserId).not.toHaveBeenCalled();
+    expect(outbox.append).toHaveBeenCalledTimes(1);
   });
 });
