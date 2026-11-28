@@ -4,16 +4,26 @@ import { Repository } from 'typeorm';
 import { TransactionContext } from 'shared/domain/repositories/transaction-context';
 import { Uuid } from 'shared/domain/value-objects/uuid.vo';
 import { withTransaction } from 'shared/infrastructure/database/transaction/typeorm-transaction-context';
+import { TenantUserProjectionReadPort } from '../../application/ports/tenant-user-projection-read.port';
 import { TenantUserProjectionPort } from '../../application/ports/tenant-user-projection.port';
 import { TenantPhone } from '../../domain/value-objects/tenant-phone.vo';
 import { TenantUserProjectionTypeormEntity } from './tenant-user-projection.typeorm-entity';
 
 @Injectable()
-export class TypeOrmTenantUserProjectionRepository implements TenantUserProjectionPort {
+export class TypeOrmTenantUserProjectionRepository
+  implements TenantUserProjectionPort, TenantUserProjectionReadPort
+{
   constructor(
     @InjectRepository(TenantUserProjectionTypeormEntity)
     private readonly repository: Repository<TenantUserProjectionTypeormEntity>,
   ) {}
+
+  existsByUserId(userId: Uuid, context: TransactionContext): Promise<boolean> {
+    return withTransaction(this.repository, context).existsBy({
+      userId,
+      isDeleted: false,
+    });
+  }
 
   async lockPhone(
     phone: TenantPhone,

@@ -1,5 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { OUTBOX_DI_TOKEN } from 'modules/outbox/outbox.di-token';
+import { CONTRACT_DI_TOKEN } from 'modules/contract/contract.di-token';
+import { TenantUserProjectionReadPort } from 'modules/contract/application/ports/tenant-user-projection-read.port';
+import { TransactionContext } from 'shared/domain/repositories/transaction-context';
 import { OutboxRepository } from 'modules/outbox/domain/repositories/outbox.repository';
 import { OutboxMessage } from 'modules/outbox/domain/entities/outbox-message.entity';
 import { ROOMMATE_PROFILE_DI_TOKEN } from 'modules/roommate-profile/roommate-profile.di-token';
@@ -18,6 +21,7 @@ import { MatchRequestEntity } from '../domain/entities/match-request.entity';
 import { MatchRequestStatus } from '../domain/enums/match-request-status.enum';
 import { MatchRequestIdempotencyKeyReusedException } from '../domain/exceptions/match-request-idempotency-key-reused.exception';
 import { MatchRequestNotFoundException } from '../domain/exceptions/match-request-not-found.exception';
+import { MatchRequestCounterpartUnavailableException } from '../domain/exceptions/match-request-counterpart-unavailable.exception';
 import { MatchRequestParticipantUnavailableException } from '../domain/exceptions/match-request-participant-unavailable.exception';
 import { MatchRequestRepository } from '../domain/repositories/match-request.repository';
 import { MATCH_REQUEST_DI_TOKEN } from '../match-request.di-token';
@@ -38,6 +42,8 @@ export class MatchRequestService {
     @Inject(UNIT_OF_WORK_DI_TOKEN) private readonly unitOfWork: IUnitOfWork,
     @Inject(OUTBOX_DI_TOKEN.REPOSITORY)
     private readonly outbox: OutboxRepository,
+    @Inject(CONTRACT_DI_TOKEN.TENANT_USER_PROJECTION_READ)
+    private readonly tenantUsers: TenantUserProjectionReadPort,
   ) {}
 
   async create(
@@ -59,8 +65,12 @@ export class MatchRequestService {
       if (
         !(await this.tenants.findActive([targetId])).has(targetId.toLowerCase())
       ) {
+        if (await this.tenants.isLocked(targetId)) {
+          throw new MatchRequestCounterpartUnavailableException();
+        }
         throw new RoommateProfileNotFoundException();
       }
+      await this.requireAvailableCounterpart(targetId, context);
       const profile = await this.profiles.findDiscoverableByTenantId(
         targetId,
         context,
@@ -88,7 +98,14 @@ export class MatchRequestService {
     return this.unitOfWork.run(async (context) => {
       const request = await this.requests.findByIdForUpdate(id, context);
       if (!request) throw new MatchRequestNotFoundException();
-      if (request.transition(actorId, next)) {
+      if (request.canTransition(actorId, next)) {
+        if (
+          next === MatchRequestStatus.ACCEPTED ||
+          next === MatchRequestStatus.REJECTED
+        ) {
+          await this.requireAvailableCounterpart(request.requesterId, context);
+        }
+        request.transition(actorId, next);
         await this.requests.save(request, context);
         await this.outbox.append(
           request.pullDomainEvents().map((event) =>
@@ -146,6 +163,15 @@ export class MatchRequestService {
         return { request, requester, target };
       }),
     };
+  }
+
+  private async requireAvailableCounterpart(
+    id: Uuid,
+    context: TransactionContext,
+  ): Promise<void> {
+    if (!(await this.tenantUsers.existsByUserId(id, context))) {
+      throw new MatchRequestCounterpartUnavailableException();
+    }
   }
 
   private async requireActiveTenant(id: Uuid): Promise<TenantSummary> {

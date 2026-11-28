@@ -13,6 +13,10 @@ import { RoommateProfileEntity } from './roommate-profile.entity';
 // Lead tenant counts once; linked current members are distinct by tenant ID.
 // Unlinked current members count by their own record ID.
 export const DISCOVERABLE = `p.is_visible = true AND p.is_deleted = false
+  AND EXISTS (
+    SELECT 1 FROM tenant_user_projections tu
+    WHERE tu.user_id = p.tenant_id AND tu.is_deleted = false
+  )
   AND (
     NOT EXISTS (
       SELECT 1 FROM contracts c

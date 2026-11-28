@@ -53,6 +53,32 @@ describe('roommate profile search', () => {
     });
   });
 
+  it('distinguishes a locked tenant from other missing/invalid Identity targets', async () => {
+    const id = generateUuid();
+    const client = { get: jest.fn() };
+    const adapter = new IdentityTenantDirectoryAdapter(client as never);
+    const locked = {
+      id,
+      name: 'Tenant',
+      role: UserRole.TENANT,
+      status: UserStatus.LOCKED,
+      isDeleted: false,
+      avatarUrl: null,
+    };
+    client.get.mockResolvedValue([locked]);
+    expect(await adapter.isLocked(id)).toBe(true);
+    expect(await adapter.findActive([id])).toEqual(new Map());
+    for (const users of [
+      [],
+      [{ ...locked, isDeleted: true }],
+      [{ ...locked, role: UserRole.LANDLORD }],
+      [{ ...locked, status: UserStatus.ACTIVE }],
+    ]) {
+      client.get.mockResolvedValue(users);
+      expect(await adapter.isLocked(id)).toBe(false);
+    }
+  });
+
   it('checks live occupancy and filters inactive Identity users before pagination', async () => {
     const db = new DataSource({
       type: 'postgres',
@@ -120,6 +146,10 @@ describe('roommate profile search', () => {
         pageNo: 1,
         pageSize: 20,
       });
+      expect(sql).toContain('tenant_user_projections');
+      expect(sql).toContain(
+        'tu.user_id = "p"."tenant_id" AND tu.is_deleted = false',
+      );
       expect(sql).toContain('r.max_occupancy');
       expect(sql).toContain('COUNT(DISTINCT COALESCE(cm.tenant_id, cm.id))');
       expect(sql).toContain('cm.left_at > CURRENT_DATE');

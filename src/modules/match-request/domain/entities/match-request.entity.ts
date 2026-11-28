@@ -86,11 +86,8 @@ export class MatchRequestEntity extends AggregateRoot {
     return this._respondedAt;
   }
 
-  transition(
-    actorId: Uuid,
-    next: MatchRequestStatus,
-    at = new Date(),
-  ): boolean {
+  /** Validate authorization, terminal state and replay without mutating the request. */
+  canTransition(actorId: Uuid, next: MatchRequestStatus): boolean {
     const permittedActor =
       next === MatchRequestStatus.WITHDRAWN ? this.requesterId : this.targetId;
     if (actorId.toLowerCase() !== permittedActor.toLowerCase())
@@ -102,6 +99,15 @@ export class MatchRequestEntity extends AggregateRoot {
     ) {
       throw new MatchRequestNotPendingException();
     }
+    return true;
+  }
+
+  transition(
+    actorId: Uuid,
+    next: MatchRequestStatus,
+    at = new Date(),
+  ): boolean {
+    if (!this.canTransition(actorId, next)) return false;
     this._status = next;
     this._respondedAt = at;
     if (next === MatchRequestStatus.ACCEPTED)
