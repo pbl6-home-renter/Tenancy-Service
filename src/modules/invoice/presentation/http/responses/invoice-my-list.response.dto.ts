@@ -4,6 +4,7 @@ import { InvoiceMyListView } from '../../../application/ports/invoice-read.port'
 import { InvoiceStatus } from '../../../domain/enums/invoice-status.enum';
 
 export class InvoiceMyListResponseDto implements InvoiceMyListView {
+  @ApiProperty({ type: Boolean }) landlordLocked: boolean;
   @ApiProperty({ format: 'uuid' }) id: Uuid;
   @ApiProperty() code: string;
   @ApiProperty({ format: 'uuid' }) contractId: Uuid;

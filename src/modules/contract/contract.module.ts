@@ -1,3 +1,4 @@
+import { LandlordLockModule } from 'modules/landlord-lock/landlord-lock.module';
 import { Module } from '@nestjs/common';
 import { ContractTenantController } from './presentation/http/controllers/contract-tenant.controller';
 import { ContractTenantListQueryHandler } from './application/queries/contract-tenant-list/contract-tenant-list.query.handler';
@@ -78,6 +79,7 @@ const queryHandlers = [
 @Module({
   imports: [
     CqrsModule,
+    LandlordLockModule,
     TypeOrmModule.forFeature([
       TenantUserProjectionTypeormEntity,
       ContractMemberTypeormEntity,

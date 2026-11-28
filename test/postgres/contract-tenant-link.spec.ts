@@ -1,3 +1,5 @@
+import { LandlordLockStateTypeormEntity } from 'modules/landlord-lock/infrastructure/persistence/landlord-lock-state.typeorm-entity';
+import { TypeOrmLandlordLockRepository } from 'modules/landlord-lock/infrastructure/persistence/landlord-lock.repository';
 import { IdentityLifecycleSubscriber } from 'modules/contract/presentation/messaging/identity-lifecycle.subscriber';
 import { InboxTypeormEntity } from 'modules/inbox/infrastructure/persistence/inbox.typeorm-entity';
 import { TypeOrmInboxRepository } from 'modules/inbox/infrastructure/persistence/inbox.repository';
@@ -61,6 +63,7 @@ describe('Contract tenant linking on PostgreSQL', () => {
       TenantUserProjectionTypeormEntity,
       OutboxTypeormEntity,
       InboxTypeormEntity,
+      LandlordLockStateTypeormEntity,
     ]);
     await db.source.synchronize();
     contracts = new TypeOrmContractRepository(
@@ -217,6 +220,9 @@ describe('Contract tenant linking on PostgreSQL', () => {
       outbox,
       new TypeOrmInboxRepository(db.source.getRepository(InboxTypeormEntity)),
       uow,
+      new TypeOrmLandlordLockRepository(
+        db.source.getRepository(LandlordLockStateTypeormEntity),
+      ),
     );
   }
 

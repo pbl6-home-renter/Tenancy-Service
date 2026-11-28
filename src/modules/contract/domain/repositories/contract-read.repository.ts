@@ -33,4 +33,5 @@ export interface ContractMyListResult extends Omit<
   'tenantName' | 'tenantPhone'
 > {
   buildingName: string;
+  landlordLocked: boolean;
 }

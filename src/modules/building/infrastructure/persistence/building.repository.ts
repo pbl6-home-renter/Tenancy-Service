@@ -1,3 +1,4 @@
+import { landlordLockedSql } from 'modules/landlord-lock/infrastructure/persistence/landlord-locked.sql';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -53,7 +54,8 @@ export class TypeOrmBuildingRepository implements BuildingRepository {
       .where('building.isDeleted = :isDeleted', { isDeleted: false })
       .andWhere('building.status = :status', {
         status: BuildingStatus.APPROVED,
-      });
+      })
+      .andWhere(`NOT ${landlordLockedSql('building')}`);
     const filter = query.filter;
     if (filter?.province) {
       qb.andWhere('building.province = :province', {
@@ -80,9 +82,15 @@ export class TypeOrmBuildingRepository implements BuildingRepository {
   }
 
   async findPublicBuildingById(id: Uuid): Promise<BuildingEntity | null> {
-    const raw = await this.repository.findOne({
-      where: { id, isDeleted: false, status: BuildingStatus.APPROVED },
-    });
+    const raw = await this.repository
+      .createQueryBuilder('building')
+      .where('building.id = :id', { id })
+      .andWhere('building.isDeleted = false')
+      .andWhere('building.status = :status', {
+        status: BuildingStatus.APPROVED,
+      })
+      .andWhere(`NOT ${landlordLockedSql('building')}`)
+      .getOne();
     return raw ? BuildingMapper.toDomain(raw) : null;
   }
 

@@ -1,9 +1,14 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Uuid } from 'shared/domain/value-objects/uuid.vo';
 import { ContractEntity } from '../../../domain/entities/contract.entity';
 import { ContractStatus } from '../../../domain/enums/contract-status.enum';
 
 export class ContractDetailResponseDto {
+  @ApiPropertyOptional({
+    type: Boolean,
+    description: 'Present for tenant reads.',
+  })
+  landlordLocked?: boolean;
   @ApiProperty() handoverRequired: boolean;
   @ApiProperty({ type: String, format: 'date', nullable: true })
   handoverCompletedOn: string | null;

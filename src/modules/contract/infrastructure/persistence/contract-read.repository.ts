@@ -1,3 +1,4 @@
+import { landlordLockedSql } from 'modules/landlord-lock/infrastructure/persistence/landlord-locked.sql';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -55,6 +56,7 @@ export class TypeOrmContractReadRepository implements ContractReadRepository {
       .addSelect('contract.roomId', 'roomId')
       .addSelect('room.name', 'roomName')
       .addSelect('building.name', 'buildingName')
+      .addSelect(landlordLockedSql('contract'), 'landlordLocked')
       .addSelect('contract.status', 'status')
       .addSelect('contract.rentPrice', 'rentPrice')
       .addSelect('contract.depositAmount', 'depositAmount')
